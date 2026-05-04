@@ -1,0 +1,54 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Mint rounded calendar tile -->
+    <path
+        android:fillColor="#DDF3E8"
+        android:pathData="M24,18h60c5.5,0 10,4.5 10,10v56c0,5.5 -4.5,10 -10,10H24c-5.5,0 -10,-4.5 -10,-10V28c0,-5.5 4.5,-10 10,-10z" />
+
+    <!-- Calendar top bar -->
+    <path
+        android:fillColor="#2E7D5A"
+        android:pathData="M14,30h80v12H14z" />
+
+    <!-- Calendar rings -->
+    <path
+        android:fillColor="#2E7D5A"
+        android:pathData="M32,12h8v16h-8zM68,12h8v16h-8z" />
+
+    <!-- Golden coin -->
+    <path
+        android:fillColor="#E9B949"
+        android:pathData="M54,46m-25,0a25,25 0,1 0,50 0a25,25 0,1 0,-50 0" />
+
+    <!-- Inner coin highlight -->
+    <path
+        android:fillColor="#F8FAF7"
+        android:fillAlpha="0.35"
+        android:pathData="M54,46m-18,0a18,18 0,1 0,36 0a18,18 0,1 0,-36 0" />
+
+    <!-- Ruble symbol, drawn as simple vector strokes -->
+    <path
+        android:strokeColor="#1F2933"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M47,32h14c6,0 10,4 10,9s-4,9 -10,9H47M47,32v30M43,54h23M43,62h20" />
+
+    <!-- Completion checkmark badge -->
+    <path
+        android:fillColor="#2E7D5A"
+        android:pathData="M75,69m-16,0a16,16 0,1 0,32 0a16,16 0,1 0,-32 0" />
+
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M67,69l6,6l11,-13" />
+</vector>
