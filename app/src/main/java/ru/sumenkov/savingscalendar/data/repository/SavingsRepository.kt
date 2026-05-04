@@ -37,6 +37,12 @@ class SavingsRepository(
         return dao.findByDate(date) != null
     }
 
+    suspend fun deleteDate(date: LocalDate) {
+        dao.findByDate(date)?.let { entry ->
+            dao.delete(entry)
+        }
+    }
+
     suspend fun monthlyReport(yearMonth: YearMonth): MonthlyReport {
         val from = yearMonth.atDay(1)
         val to = yearMonth.atEndOfMonth()

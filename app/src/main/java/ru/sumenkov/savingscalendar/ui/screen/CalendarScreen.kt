@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -39,11 +40,13 @@ import java.util.Locale
 fun CalendarScreen(
     state: SavingsUiState,
     onConfirmDate: (LocalDate) -> Unit,
+    onDeleteDate: (LocalDate) -> Unit,
     amountForDate: (LocalDate) -> Long,
     modifier: Modifier = Modifier
 ) {
     var yearMonth by remember(state.today.year) { mutableStateOf(YearMonth.from(state.today)) }
     var selectedDate by remember(state.today) { mutableStateOf<LocalDate?>(state.today) }
+    var dateToDelete by remember { mutableStateOf<LocalDate?>(null) }
     val confirmedDates = state.entries.map { it.date }.toSet()
     val firstDayOffset = yearMonth.atDay(1).dayOfWeek.value - 1
     val days = List(firstDayOffset) { null } + (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
@@ -128,9 +131,24 @@ fun CalendarScreen(
                 canConfirm = entry == null &&
                     !date.isAfter(state.today) &&
                     (date == state.today || state.settings.allowPastDays),
-                onConfirm = { onConfirmDate(date) }
+                onConfirm = { onConfirmDate(date) },
+                onDelete = { dateToDelete = date }
             )
         }
+    }
+
+    dateToDelete?.let { date ->
+        val entry = state.entries.firstOrNull { it.date == date }
+        CancelContributionDialog(
+            date = date,
+            amount = entry?.amount ?: amountForDate(date),
+            currencySymbol = state.settings.currencySymbol,
+            onDismiss = { dateToDelete = null },
+            onConfirm = {
+                dateToDelete = null
+                onDeleteDate(date)
+            }
+        )
     }
 }
 
@@ -199,7 +217,8 @@ private fun DayDetailsCard(
     confirmed: Boolean,
     baseRate: Long,
     canConfirm: Boolean,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val dateText = date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
 
@@ -210,7 +229,14 @@ private fun DayDetailsCard(
             Text("Сумма: $amount $currencySymbol")
             Text("Ставка: $baseRate $currencySymbol")
             Text(if (confirmed) "Статус: взнос внесён" else "Статус: не отмечено")
-            if (!confirmed) {
+            if (confirmed) {
+                Button(
+                    onClick = onDelete,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Отменить взнос")
+                }
+            } else {
                 Button(
                     onClick = onConfirm,
                     enabled = canConfirm,
@@ -221,6 +247,33 @@ private fun DayDetailsCard(
             }
         }
     }
+}
+
+@Composable
+private fun CancelContributionDialog(
+    date: LocalDate,
+    amount: Long,
+    currencySymbol: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val dateText = date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Отменить взнос?") },
+        text = { Text("Отменить взнос за $dateText на сумму $amount $currencySymbol?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Отменить взнос")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Назад")
+            }
+        }
+    )
 }
 
 @Composable

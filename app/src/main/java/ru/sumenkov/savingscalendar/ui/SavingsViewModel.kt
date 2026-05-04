@@ -48,6 +48,13 @@ class SavingsViewModel(
         }
     }
 
+    fun deleteDate(date: LocalDate) {
+        viewModelScope.launch {
+            savingsRepository.deleteDate(date)
+            refreshMonthlyReport()
+        }
+    }
+
     fun updateBaseRate(value: Long) {
         viewModelScope.launch {
             settingsRepository.setBaseRate(value)

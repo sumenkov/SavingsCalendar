@@ -57,4 +57,17 @@ class AppDatabaseTest {
         assertEquals(1, january.completedDaysInMonth)
         assertEquals(31, january.daysInMonth)
     }
+
+    @Test
+    fun deletingDateRemovesItFromReports() = runBlocking {
+        val date = LocalDate.of(2026, 1, 10)
+        repository.confirmDate(date, baseRate = 2L)
+
+        repository.deleteDate(date)
+
+        val report = repository.monthlyReport(YearMonth.of(2026, 1))
+        assertEquals(0L, report.monthTotal)
+        assertEquals(0L, report.yearTotal)
+        assertEquals(0, report.completedDaysInMonth)
+    }
 }

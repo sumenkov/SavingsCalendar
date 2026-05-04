@@ -1,6 +1,7 @@
 package ru.sumenkov.savingscalendar.ui
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -12,16 +13,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import ru.sumenkov.savingscalendar.R
 import ru.sumenkov.savingscalendar.ui.screen.CalendarScreen
 import ru.sumenkov.savingscalendar.ui.screen.HistoryScreen
 import ru.sumenkov.savingscalendar.ui.screen.HomeScreen
 import ru.sumenkov.savingscalendar.ui.screen.SettingsScreen
 
-enum class AppTab(val title: String) {
-    Home("Сегодня"),
-    Calendar("Календарь"),
-    History("История"),
-    Settings("Настройки")
+enum class AppTab(val title: String, val iconRes: Int) {
+    Home("Сегодня", R.drawable.ic_tab_today),
+    Calendar("Календарь", R.drawable.ic_tab_calendar),
+    History("История", R.drawable.ic_tab_history),
+    Settings("Настройки", R.drawable.ic_tab_settings)
 }
 
 @Composable
@@ -41,7 +44,12 @@ fun SavingsApp(
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
-                        icon = { Text(tab.title.take(1)) },
+                        icon = {
+                            Icon(
+                                painter = painterResource(tab.iconRes),
+                                contentDescription = null
+                            )
+                        },
                         label = { Text(tab.title) }
                     )
                 }
@@ -58,10 +66,15 @@ fun SavingsApp(
             AppTab.Calendar -> CalendarScreen(
                 state = state,
                 onConfirmDate = viewModel::confirmDate,
+                onDeleteDate = viewModel::deleteDate,
                 amountForDate = viewModel::plannedAmountFor,
                 modifier = modifier
             )
-            AppTab.History -> HistoryScreen(state = state, modifier = modifier)
+            AppTab.History -> HistoryScreen(
+                state = state,
+                onDeleteDate = viewModel::deleteDate,
+                modifier = modifier
+            )
             AppTab.Settings -> SettingsScreen(
                 state = state,
                 notificationPermissionState = notificationPermissionState,
