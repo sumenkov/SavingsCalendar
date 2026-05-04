@@ -28,7 +28,7 @@ fun HistoryScreen(state: SavingsUiState, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "История",
+            text = "История: ${state.yearTotal} ${state.settings.currencySymbol}",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,6 +38,7 @@ fun HomeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -123,10 +126,25 @@ private fun MonthlyReportCard(state: SavingsUiState) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Итоги месяца: $monthName", style = MaterialTheme.typography.titleMedium)
-            Text("За месяц: ${report.monthTotal} ${state.settings.currencySymbol}")
-            Text("Всего с начала года: ${report.yearTotal} ${state.settings.currencySymbol}")
-            Text("Отмечено дней: ${report.completedDaysInMonth} из ${report.daysInMonth}")
-            Text("Прогресс месяца: ${report.completionPercent}%")
+            ReportLine("За месяц", "${report.monthTotal} ${state.settings.currencySymbol}")
+            ReportLine("С начала года", "${report.yearTotal} ${state.settings.currencySymbol}")
+            ReportLine("Отмечено дней", "${report.completedDaysInMonth} из ${report.daysInMonth}")
+            ReportLine("Прогресс месяца", "${report.completionPercent}%")
         }
+    }
+}
+
+@Composable
+private fun ReportLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label)
+        Text(
+            text = value,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }

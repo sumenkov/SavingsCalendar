@@ -9,12 +9,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,12 +49,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     var baseRateText by remember(state.settings.baseRate) { mutableStateOf(state.settings.baseRate.toString()) }
-    var reminderTimeText by remember(state.settings.reminderHour, state.settings.reminderMinute) {
-        mutableStateOf(formatTime(state.settings.reminderHour, state.settings.reminderMinute))
-    }
-    var monthlyReportTimeText by remember(state.settings.monthlyReportHour, state.settings.monthlyReportMinute) {
-        mutableStateOf(formatTime(state.settings.monthlyReportHour, state.settings.monthlyReportMinute))
-    }
     var currencyText by remember(state.settings.currencySymbol) {
         mutableStateOf(state.settings.currencySymbol)
     }
@@ -112,13 +111,9 @@ fun SettingsScreen(
 
         TimeSettingCard(
             title = "Время ежедневного напоминания",
-            value = reminderTimeText,
-            onValueChange = { value ->
-                reminderTimeText = value.filter { it.isDigit() || it == ':' }.take(5)
-                parseTime(reminderTimeText)?.let { (hour, minute) ->
-                    onReminderTimeChange(hour, minute)
-                }
-            }
+            hour = state.settings.reminderHour,
+            minute = state.settings.reminderMinute,
+            onTimeChange = onReminderTimeChange
         )
 
         SettingSwitch(
@@ -130,13 +125,9 @@ fun SettingsScreen(
 
         TimeSettingCard(
             title = "Время месячного отчёта",
-            value = monthlyReportTimeText,
-            onValueChange = { value ->
-                monthlyReportTimeText = value.filter { it.isDigit() || it == ':' }.take(5)
-                parseTime(monthlyReportTimeText)?.let { (hour, minute) ->
-                    onMonthlyReportTimeChange(hour, minute)
-                }
-            }
+            hour = state.settings.monthlyReportHour,
+            minute = state.settings.monthlyReportMinute,
+            onTimeChange = onMonthlyReportTimeChange
         )
 
         SettingSwitch(
@@ -184,22 +175,78 @@ private fun PermissionCard(
 @Composable
 private fun TimeSettingCard(
     title: String,
-    value: String,
-    onValueChange: (String) -> Unit
+    hour: Int,
+    minute: Int,
+    onTimeChange: (Int, Int) -> Unit
 ) {
+    var showPicker by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                label = { Text("Формат 20:30") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(formatTime(hour, minute), style = MaterialTheme.typography.bodyMedium)
+            }
+            Button(onClick = { showPicker = true }) {
+                Text("Изменить")
+            }
         }
     }
+
+    if (showPicker) {
+        TimePickerDialogContent(
+            title = title,
+            hour = hour,
+            minute = minute,
+            onDismiss = { showPicker = false },
+            onConfirm = { selectedHour, selectedMinute ->
+                showPicker = false
+                onTimeChange(selectedHour, selectedMinute)
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialogContent(
+    title: String,
+    hour: Int,
+    minute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = hour,
+        initialMinute = minute,
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(timePickerState.hour, timePickerState.minute)
+                }
+            ) {
+                Text("Готово")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+        title = { Text(title) },
+        text = { TimePicker(state = timePickerState) }
+    )
 }
 
 @Composable
@@ -228,12 +275,4 @@ private fun SettingSwitch(
 
 private fun formatTime(hour: Int, minute: Int): String {
     return "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
-}
-
-private fun parseTime(value: String): Pair<Int, Int>? {
-    val parts = value.split(":")
-    if (parts.size != 2) return null
-    val hour = parts[0].toIntOrNull() ?: return null
-    val minute = parts[1].toIntOrNull() ?: return null
-    return if (hour in 0..23 && minute in 0..59) hour to minute else null
 }
