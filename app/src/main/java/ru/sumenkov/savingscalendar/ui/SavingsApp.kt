@@ -25,7 +25,12 @@ enum class AppTab(val title: String) {
 }
 
 @Composable
-fun SavingsApp(viewModel: SavingsViewModel) {
+fun SavingsApp(
+    viewModel: SavingsViewModel,
+    notificationPermissionState: NotificationPermissionUiState,
+    onRequestNotificationPermission: () -> Unit,
+    onOpenExactAlarmSettings: () -> Unit
+) {
     val state by viewModel.state.collectAsState()
     var selectedTab by remember { mutableStateOf(AppTab.Home) }
 
@@ -50,13 +55,25 @@ fun SavingsApp(viewModel: SavingsViewModel) {
                 onConfirmToday = viewModel::confirmToday,
                 modifier = modifier
             )
-            AppTab.Calendar -> CalendarScreen(state = state, modifier = modifier)
+            AppTab.Calendar -> CalendarScreen(
+                state = state,
+                onConfirmDate = viewModel::confirmDate,
+                amountForDate = viewModel::plannedAmountFor,
+                modifier = modifier
+            )
             AppTab.History -> HistoryScreen(state = state, modifier = modifier)
             AppTab.Settings -> SettingsScreen(
                 state = state,
+                notificationPermissionState = notificationPermissionState,
                 onBaseRateChange = viewModel::updateBaseRate,
                 onRemindersEnabledChange = viewModel::setRemindersEnabled,
                 onMonthlyReportsEnabledChange = viewModel::setMonthlyReportsEnabled,
+                onReminderTimeChange = viewModel::setReminderTime,
+                onMonthlyReportTimeChange = viewModel::setMonthlyReportTime,
+                onAllowPastDaysChange = viewModel::setAllowPastDays,
+                onCurrencySymbolChange = viewModel::setCurrencySymbol,
+                onRequestNotificationPermission = onRequestNotificationPermission,
+                onOpenExactAlarmSettings = onOpenExactAlarmSettings,
                 modifier = modifier
             )
         }

@@ -52,11 +52,27 @@ class SettingsRepository(
         }
     }
 
+    suspend fun setMonthlyReportTime(hour: Int, minute: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.monthlyReportHour] = hour.coerceIn(0, 23)
+            prefs[Keys.monthlyReportMinute] = minute.coerceIn(0, 59)
+        }
+    }
+
     suspend fun setRemindersEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[Keys.remindersEnabled] = enabled }
     }
 
     suspend fun setMonthlyReportsEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[Keys.monthlyReportsEnabled] = enabled }
+    }
+
+    suspend fun setAllowPastDays(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.allowPastDays] = enabled }
+    }
+
+    suspend fun setCurrencySymbol(value: String) {
+        val normalized = value.trim().ifBlank { "₽" }.take(4)
+        context.dataStore.edit { prefs -> prefs[Keys.currencySymbol] = normalized }
     }
 }

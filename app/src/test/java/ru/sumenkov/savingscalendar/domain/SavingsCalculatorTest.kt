@@ -34,4 +34,47 @@ class SavingsCalculatorTest {
         val january2026 = YearMonth.of(2026, 1)
         assertEquals(496L, calculator.monthlyPlannedTotal(january2026, baseRate = 1L))
     }
+
+    @Test
+    fun forecastStartsFromTodayAndDoesNotCatchUpMissedPastDays() {
+        val today = LocalDate.of(2026, 1, 3)
+
+        val forecast = calculator.forecastToEndOfYear(
+            today = today,
+            baseRate = 1L,
+            confirmedDates = emptySet(),
+            confirmedBalance = 0L
+        )
+
+        assertEquals(66_792L, forecast)
+    }
+
+    @Test
+    fun forecastDoesNotDoubleCountTodayWhenItIsAlreadyConfirmed() {
+        val today = LocalDate.of(2026, 1, 3)
+
+        val forecast = calculator.forecastToEndOfYear(
+            today = today,
+            baseRate = 1L,
+            confirmedDates = setOf(today),
+            confirmedBalance = 3L
+        )
+
+        assertEquals(66_792L, forecast)
+    }
+
+    @Test
+    fun forecastExcludesAlreadyConfirmedFutureDates() {
+        val today = LocalDate.of(2026, 1, 3)
+        val futureConfirmedDate = LocalDate.of(2026, 1, 5)
+
+        val forecast = calculator.forecastToEndOfYear(
+            today = today,
+            baseRate = 1L,
+            confirmedDates = setOf(futureConfirmedDate),
+            confirmedBalance = 5L
+        )
+
+        assertEquals(66_792L, forecast)
+    }
 }

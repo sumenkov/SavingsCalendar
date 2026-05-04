@@ -21,6 +21,25 @@ class SavingsCalculator {
         return (date.dayOfYear..daysInYear).sumOf { day -> amountForDay(day, baseRate) }
     }
 
+    fun forecastToEndOfYear(
+        today: LocalDate,
+        baseRate: Long,
+        confirmedDates: Set<LocalDate>,
+        confirmedBalance: Long
+    ): Long {
+        require(confirmedBalance >= 0) { "confirmedBalance must be non-negative" }
+
+        val startDate = if (today in confirmedDates) today.plusDays(1) else today
+        if (startDate.year != today.year) return confirmedBalance
+
+        val daysInYear = Year.of(today.year).length()
+        val futurePlan = (startDate.dayOfYear..daysInYear).sumOf { day ->
+            val date = LocalDate.ofYearDay(today.year, day)
+            if (date in confirmedDates) 0L else amountForDay(day, baseRate)
+        }
+        return confirmedBalance + futurePlan
+    }
+
     fun monthlyPlannedTotal(yearMonth: YearMonth, baseRate: Long): Long {
         return (1..yearMonth.lengthOfMonth()).sumOf { dayOfMonth ->
             val date = yearMonth.atDay(dayOfMonth)

@@ -49,9 +49,13 @@ class ReminderScheduler(
         alarmManager.cancel(pendingIntent(MONTHLY_REQUEST_CODE, Intent(context, MonthlyReportReceiver::class.java)))
     }
 
+    fun canScheduleExactAlarms(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+    }
+
     private fun schedule(requestCode: Int, intent: Intent, triggerAtMillis: Long) {
         val pendingIntent = pendingIntent(requestCode, intent)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+        if (!canScheduleExactAlarms()) {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
         } else {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)

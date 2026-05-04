@@ -53,17 +53,16 @@ app/src/main/java/ru/sumenkov/savingscalendar/
 
 ## Gradle wrapper
 
-В архиве намеренно не лежит `gradle-wrapper.jar`, чтобы не тащить бинарник неизвестного происхождения. Android Studio обычно сама предложит использовать установленный Gradle или скачать wrapper при синхронизации.
+В проекте хранится Gradle wrapper, включая `gradle/wrapper/gradle-wrapper.jar`. Текущая версия wrapper настроена в `gradle/wrapper/gradle-wrapper.properties`; сейчас это Gradle `9.3.0`.
 
-Если хочешь создать wrapper вручную:
+Для сборки из терминала:
 
 ```bash
 cd savings-calendar-android
-gradle wrapper --gradle-version 8.10.2
 ./gradlew :app:assembleDebug
 ```
 
-Если `gradle` не установлен, проще открыть проект в Android Studio и дать IDE выполнить синхронизацию.
+Если wrapper нужно пересоздать вручную, используй ту же версию Gradle, что указана в `distributionUrl`.
 
 ## Иконка
 
@@ -103,11 +102,12 @@ TextSecondary:#5B6870
 - Разрешение уведомлений на Android 13+.
 - Поведение exact alarm на Android 12+ / Android 14+.
 
+## Room schema
+
+Room schema export включён намеренно. JSON-схемы лежат в `app/schemas/` и должны попадать в коммит вместе с изменениями структуры базы, чтобы миграции можно было проверять воспроизводимо.
+
 ## Ближайшие задачи
 
-1. Довести календарь до полноценной месячной сетки с переключением месяцев.
-2. Добавить экран деталей дня.
-3. Сделать отдельный экран месячного отчёта.
-4. Добавить UI для разрешений уведомлений и exact alarm.
-5. Покрыть `SavingsCalculator` unit-тестами.
-6. Добавить инструментальную проверку сохранения отметок в Room.
+1. Сделать отдельный экран месячного отчёта.
+2. Прогнать инструментальные Room-тесты на устройстве или эмуляторе.
+3. Проверить UX разрешений уведомлений на Android 13+ и exact alarm на Android 12+/14+.

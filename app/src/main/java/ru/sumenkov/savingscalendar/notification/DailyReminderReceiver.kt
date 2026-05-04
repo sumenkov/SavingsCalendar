@@ -2,10 +2,10 @@ package ru.sumenkov.savingscalendar.notification
 
 import android.Manifest
 import android.app.PendingIntent
-import android.content.pm.PackageManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -15,9 +15,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.sumenkov.savingscalendar.MainActivity
 import ru.sumenkov.savingscalendar.R
-import ru.sumenkov.savingscalendar.data.db.AppDatabase
-import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
+import ru.sumenkov.savingscalendar.domain.SavingsCalculator
 import java.time.LocalDate
 
 class DailyReminderReceiver : BroadcastReceiver() {
@@ -28,7 +27,7 @@ class DailyReminderReceiver : BroadcastReceiver() {
                 val settingsRepository = SettingsRepository(context.applicationContext)
                 val settings = settingsRepository.settings.first()
                 val today = LocalDate.now()
-                val amount = today.dayOfYear.toLong() * settings.baseRate
+                val amount = SavingsCalculator().amountForDay(today.dayOfYear, settings.baseRate)
 
                 val openIntent = PendingIntent.getActivity(
                     context,

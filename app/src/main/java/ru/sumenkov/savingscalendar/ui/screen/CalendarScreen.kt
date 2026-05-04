@@ -1,6 +1,7 @@
 package ru.sumenkov.savingscalendar.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,9 +14,16 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,10 +36,19 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun CalendarScreen(state: SavingsUiState, modifier: Modifier = Modifier) {
-    val yearMonth = YearMonth.from(state.today)
+fun CalendarScreen(
+    state: SavingsUiState,
+    onConfirmDate: (LocalDate) -> Unit,
+    amountForDate: (LocalDate) -> Long,
+    modifier: Modifier = Modifier
+) {
+    var yearMonth by remember(state.today.year) { mutableStateOf(YearMonth.from(state.today)) }
+    var selectedDate by remember(state.today) { mutableStateOf<LocalDate?>(state.today) }
     val confirmedDates = state.entries.map { it.date }.toSet()
-    val days = (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
+    val firstDayOffset = yearMonth.atDay(1).dayOfWeek.value - 1
+    val days = List(firstDayOffset) { null } + (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
+    val canGoPrevious = yearMonth.monthValue > 1
+    val canGoNext = yearMonth.monthValue < 12
 
     Column(
         modifier = modifier
@@ -39,11 +56,36 @@ fun CalendarScreen(state: SavingsUiState, modifier: Modifier = Modifier) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru")).replaceFirstChar { it.uppercase() } + " ${yearMonth.year}",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = {
+                    yearMonth = yearMonth.minusMonths(1)
+                    selectedDate = yearMonth.atDay(1)
+                },
+                enabled = canGoPrevious
+            ) {
+                Text("Назад")
+            }
+            Text(
+                text = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
+                    .replaceFirstChar { it.uppercase() } + " ${yearMonth.year}",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            TextButton(
+                onClick = {
+                    yearMonth = yearMonth.plusMonths(1)
+                    selectedDate = yearMonth.atDay(1)
+                },
+                enabled = canGoNext
+            ) {
+                Text("Вперёд")
+            }
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LegendDot("✓", "Отложено")
@@ -51,16 +93,59 @@ fun CalendarScreen(state: SavingsUiState, modifier: Modifier = Modifier) {
             LegendDot("•", "Сегодня")
         }
 
+        WeekHeader()
+
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(days) { date ->
-                DayCell(
-                    date = date,
-                    confirmed = date in confirmedDates,
-                    today = date == state.today
+                if (date == null) {
+                    Box(modifier = Modifier.aspectRatio(1f))
+                } else {
+                    DayCell(
+                        date = date,
+                        confirmed = date in confirmedDates,
+                        today = date == state.today,
+                        selected = date == selectedDate,
+                        currentDate = state.today,
+                        onClick = { selectedDate = date }
+                    )
+                }
+            }
+        }
+
+        selectedDate?.let { date ->
+            val entry = state.entries.firstOrNull { it.date == date }
+            DayDetailsCard(
+                date = date,
+                amount = entry?.amount ?: amountForDate(date),
+                currencySymbol = state.settings.currencySymbol,
+                confirmed = entry != null,
+                baseRate = entry?.baseRate ?: state.settings.baseRate,
+                canConfirm = entry == null &&
+                    !date.isAfter(state.today) &&
+                    (date == state.today || state.settings.allowPastDays),
+                onConfirm = { onConfirmDate(date) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeekHeader() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach { label ->
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -68,15 +153,24 @@ fun CalendarScreen(state: SavingsUiState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DayCell(date: LocalDate, confirmed: Boolean, today: Boolean) {
+private fun DayCell(
+    date: LocalDate,
+    confirmed: Boolean,
+    today: Boolean,
+    selected: Boolean,
+    currentDate: LocalDate,
+    onClick: () -> Unit
+) {
     val container = when {
+        selected -> MaterialTheme.colorScheme.tertiaryContainer
         confirmed -> MaterialTheme.colorScheme.primary
         today -> MaterialTheme.colorScheme.secondary
-        date.isBefore(LocalDate.now()) -> MaterialTheme.colorScheme.errorContainer
+        date.isBefore(currentDate) -> MaterialTheme.colorScheme.errorContainer
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
     val textColor = when {
+        selected -> MaterialTheme.colorScheme.onTertiaryContainer
         confirmed || today -> MaterialTheme.colorScheme.onPrimary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -85,7 +179,8 @@ private fun DayCell(date: LocalDate, confirmed: Boolean, today: Boolean) {
         modifier = Modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
-            .background(container),
+            .background(container)
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -93,6 +188,38 @@ private fun DayCell(date: LocalDate, confirmed: Boolean, today: Boolean) {
             color = textColor,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+@Composable
+private fun DayDetailsCard(
+    date: LocalDate,
+    amount: Long,
+    currencySymbol: String,
+    confirmed: Boolean,
+    baseRate: Long,
+    canConfirm: Boolean,
+    onConfirm: () -> Unit
+) {
+    val dateText = date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(dateText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("День №${date.dayOfYear}")
+            Text("Сумма: $amount $currencySymbol")
+            Text("Ставка: $baseRate $currencySymbol")
+            Text(if (confirmed) "Статус: отложено" else "Статус: не отмечено")
+            if (!confirmed) {
+                Button(
+                    onClick = onConfirm,
+                    enabled = canConfirm,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (canConfirm) "Отметить день" else "Нельзя отметить этот день")
+                }
+            }
+        }
     }
 }
 
