@@ -44,6 +44,12 @@ android {
         buildConfig = true
     }
 
+    packaging {
+        resources {
+            excludes += "DebugProbesKt.bin"
+        }
+    }
+
     ksp {
         arg("room.schemaLocation", "$projectDir/schemas")
     }
@@ -60,7 +66,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
     implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
