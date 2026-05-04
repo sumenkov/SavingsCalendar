@@ -3,6 +3,7 @@ package ru.sumenkov.savingscalendar.ui.screen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,8 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,32 +35,33 @@ fun HomeScreen(
     onConfirmToday: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    LazyColumn(
         modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(R.drawable.app_logo),
-                contentDescription = "Логотип приложения",
-                modifier = Modifier.size(56.dp)
-            )
-            Text(
-                text = "Календарь накоплений",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.app_logo),
+                    contentDescription = "Логотип приложения",
+                    modifier = Modifier.size(56.dp)
+                )
+                Text(
+                    text = "Календарь накоплений",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
-        TodayCard(state = state, onConfirmToday = onConfirmToday)
-        TotalsCard(state = state)
-        MonthlyReportCard(state = state)
+        item { TodayCard(state = state, onConfirmToday = onConfirmToday) }
+        item { TotalsCard(state = state) }
+        item { MonthlyReportCard(state = state) }
     }
 }
 
