@@ -64,21 +64,18 @@ cd savings-calendar-android
 
 Если wrapper нужно пересоздать вручную, используй ту же версию Gradle, что указана в `distributionUrl`.
 
-## Иконка
+## Иконка и логотип
 
-Сейчас в проекте лежит временная векторная иконка:
+В проекте используются PNG-ассеты:
 
 ```text
-app/src/main/res/drawable/ic_launcher_foreground.xml
+app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+app/src/main/res/drawable-nodpi/app_logo.png
 app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 ```
 
-Если у тебя есть финальная иконка из соседнего чата в PNG/SVG:
-
-- для SVG: замени `ic_launcher_foreground.xml` после конвертации в Vector Drawable;
-- для PNG: сгенерируй adaptive icon через Android Studio: **New > Image Asset**;
-- имя приложения и package менять не нужно.
+Launcher icon подключён через adaptive icon XML, логотип показывается на главном экране.
 
 ## Текущие цвета
 

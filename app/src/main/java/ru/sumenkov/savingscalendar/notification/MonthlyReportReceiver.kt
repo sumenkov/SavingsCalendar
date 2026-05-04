@@ -42,7 +42,7 @@ class MonthlyReportReceiver : BroadcastReceiver() {
                 )
 
                 val notification = NotificationCompat.Builder(context, NotificationChannels.MONTHLY_CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_notification)
+                    .setSmallIcon(R.drawable.ic_notification_small)
                     .setContentTitle("Итоги месяца: $monthName")
                     .setContentText("За месяц: ${report.monthTotal} ${settings.currencySymbol}, всего за год: ${report.yearTotal} ${settings.currencySymbol}.")
                     .setStyle(

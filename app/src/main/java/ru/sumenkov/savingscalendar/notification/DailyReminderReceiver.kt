@@ -37,7 +37,7 @@ class DailyReminderReceiver : BroadcastReceiver() {
                 )
 
                 val notification = NotificationCompat.Builder(context, NotificationChannels.DAILY_CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_notification)
+                    .setSmallIcon(R.drawable.ic_notification_small)
                     .setContentTitle("Сегодня день №${today.dayOfYear}")
                     .setContentText("Отложите $amount ${settings.currencySymbol} в накопления.")
                     .setContentIntent(openIntent)
