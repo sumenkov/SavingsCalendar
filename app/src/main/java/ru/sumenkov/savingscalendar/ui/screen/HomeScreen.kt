@@ -87,7 +87,7 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
                 enabled = !state.todayConfirmed,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (state.todayConfirmed) "Сегодня уже отложено" else "Я отложил")
+                Text(if (state.todayConfirmed) "Взнос за сегодня внесён" else "Внести взнос")
             }
         }
     }

@@ -88,7 +88,7 @@ fun CalendarScreen(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LegendDot("✓", "Отложено")
+            LegendDot("✓", "Взнос внесён")
             LegendDot("!", "Пропущено")
             LegendDot("•", "Сегодня")
         }
@@ -162,16 +162,16 @@ private fun DayCell(
     onClick: () -> Unit
 ) {
     val container = when {
-        selected -> MaterialTheme.colorScheme.tertiaryContainer
         confirmed -> MaterialTheme.colorScheme.primary
         today -> MaterialTheme.colorScheme.secondary
+        selected -> MaterialTheme.colorScheme.tertiaryContainer
         date.isBefore(currentDate) -> MaterialTheme.colorScheme.errorContainer
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
     val textColor = when {
-        selected -> MaterialTheme.colorScheme.onTertiaryContainer
         confirmed || today -> MaterialTheme.colorScheme.onPrimary
+        selected -> MaterialTheme.colorScheme.onTertiaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
@@ -209,7 +209,7 @@ private fun DayDetailsCard(
             Text("День №${date.dayOfYear}")
             Text("Сумма: $amount $currencySymbol")
             Text("Ставка: $baseRate $currencySymbol")
-            Text(if (confirmed) "Статус: отложено" else "Статус: не отмечено")
+            Text(if (confirmed) "Статус: взнос внесён" else "Статус: не отмечено")
             if (!confirmed) {
                 Button(
                     onClick = onConfirm,

@@ -47,7 +47,7 @@ class MonthlyReportReceiver : BroadcastReceiver() {
                     .setContentText("За месяц: ${report.monthTotal} ${settings.currencySymbol}, всего за год: ${report.yearTotal} ${settings.currencySymbol}.")
                     .setStyle(
                         NotificationCompat.BigTextStyle().bigText(
-                            "За месяц отложено ${report.monthTotal} ${settings.currencySymbol}. " +
+                            "За месяц внесено ${report.monthTotal} ${settings.currencySymbol}. " +
                                 "Всего с начала года: ${report.yearTotal} ${settings.currencySymbol}. " +
                                 "Отмечено дней: ${report.completedDaysInMonth} из ${report.daysInMonth}."
                         )
