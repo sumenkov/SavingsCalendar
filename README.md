@@ -74,6 +74,25 @@ cd savings-calendar-android
 
 Если wrapper нужно пересоздать вручную, используй ту же версию Gradle, что указана в `distributionUrl`.
 
+## CI/CD
+
+GitHub Actions workflow `.github/workflows/release.yml` собирает подписанный release APK после push в `master` или `main`, а также вручную через `workflow_dispatch`.
+
+Для подписи нужно добавить repository secrets:
+
+```text
+ANDROID_KEYSTORE_BASE64
+ANDROID_KEYSTORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
+```
+
+`ANDROID_KEY_PASSWORD` можно не задавать, если пароль ключа совпадает с паролем keystore. Keystore кодируется так:
+
+```bash
+base64 -w0 ~/.android/savings-calendar-release.jks
+```
+
 ## Иконка и логотип
 
 В проекте используются PNG-ассеты:
