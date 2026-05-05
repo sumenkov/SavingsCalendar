@@ -1,7 +1,7 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package ru.sumenkov.savingscalendar.ui.screen
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,11 +15,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimeInput
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,22 +34,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import ru.sumenkov.savingscalendar.data.settings.AppLanguage
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.ui.NotificationPermissionUiState
-import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
+import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
     state: SavingsUiState,
-    strings: SavingsStrings,
     notificationPermissionState: NotificationPermissionUiState,
     onBaseRateChange: (Long) -> Unit,
     onRemindersEnabledChange: (Boolean) -> Unit,
@@ -54,7 +60,6 @@ fun SettingsScreen(
     onAccumulationStartDateChange: (LocalDate) -> Unit,
     onAccumulationEndDateChange: (LocalDate) -> Unit,
     onAmountModeChange: (SavingsAmountMode) -> Unit,
-    onLanguageChange: (AppLanguage) -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -73,20 +78,20 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = strings.settingsTitle,
+            text = "Настройки",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
 
-        HelpCard(strings = strings, onOpen = { showHelp = true })
+        HelpCard(onOpen = { showHelp = true })
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     text = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
-                        strings.fixedAmountTitle
+                        "Ровная сумма"
                     } else {
-                        strings.baseRateTitle
+                        "Базовая ставка"
                     },
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -99,9 +104,9 @@ fun SettingsScreen(
                     label = {
                         Text(
                             if (state.settings.amountMode == SavingsAmountMode.FIXED) {
-                                "${strings.dailyAmountLabel}, ${state.settings.currencySymbol}"
+                                "Сумма в день, ${state.settings.currencySymbol}"
                             } else {
-                                "${strings.rateLabel}, ${state.settings.currencySymbol}"
+                                "Ставка, ${state.settings.currencySymbol}"
                             }
                         )
                     },
@@ -117,20 +122,20 @@ fun SettingsScreen(
                             onCurrencySymbolChange(currencyText)
                         }
                     },
-                    label = { Text(strings.currencySymbol) },
+                    label = { Text("Символ валюты") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text(strings.settingsAffectFuture)
+                Text("Изменение влияет только на будущие отметки.")
             }
         }
 
         SettingSwitch(
-            title = strings.fixedAmounts,
+            title = "Ровные суммы",
             subtitle = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
-                strings.fixedAmountsSubtitle
+                "Каждый день откладывается одна и та же сумма."
             } else {
-                strings.growthAmountsSubtitle
+                "Сумма растёт по формуле: день периода × базовая ставка."
             },
             checked = state.settings.amountMode == SavingsAmountMode.FIXED,
             onCheckedChange = { fixed ->
@@ -142,69 +147,59 @@ fun SettingsScreen(
 
         AccumulationPeriodCard(
             state = state,
-            strings = strings,
             onStartDateChange = onAccumulationStartDateChange,
             onEndDateChange = onAccumulationEndDateChange
         )
 
         PermissionCard(
             state = notificationPermissionState,
-            strings = strings,
             onRequestNotificationPermission = onRequestNotificationPermission,
             onOpenExactAlarmSettings = onOpenExactAlarmSettings
         )
 
         SettingSwitch(
-            title = strings.dailyReminders,
+            title = "Ежедневные напоминания",
             subtitle = formatTime(state.settings.reminderHour, state.settings.reminderMinute),
             checked = state.settings.remindersEnabled,
             onCheckedChange = onRemindersEnabledChange
         )
 
         TimeSettingCard(
-            title = strings.dailyReminderTime,
+            title = "Время ежедневного напоминания",
             hour = state.settings.reminderHour,
             minute = state.settings.reminderMinute,
-            strings = strings,
             onTimeChange = onReminderTimeChange
         )
 
         SettingSwitch(
-            title = strings.monthlyReports,
-            subtitle = formatTime(state.settings.monthlyReportHour, state.settings.monthlyReportMinute),
+            title = "Месячные отчёты",
+            subtitle = "Последний день месяца, ${formatTime(state.settings.monthlyReportHour, state.settings.monthlyReportMinute)}",
             checked = state.settings.monthlyReportsEnabled,
             onCheckedChange = onMonthlyReportsEnabledChange
         )
 
         TimeSettingCard(
-            title = strings.monthlyReportTime,
+            title = "Время месячного отчёта",
             hour = state.settings.monthlyReportHour,
             minute = state.settings.monthlyReportMinute,
-            strings = strings,
             onTimeChange = onMonthlyReportTimeChange
         )
 
         SettingSwitch(
-            title = strings.allowPastDays,
-            subtitle = strings.allowPastDaysSubtitle,
+            title = "Разрешить отметки прошлых дней",
+            subtitle = "Пропущенные дни можно отметить вручную, но прогноз их не догоняет автоматически.",
             checked = state.settings.allowPastDays,
             onCheckedChange = onAllowPastDaysChange
-        )
-
-        LanguageCard(
-            state = state,
-            strings = strings,
-            onLanguageChange = onLanguageChange
         )
     }
 
     if (showHelp) {
-        SavingsHelpDialog(strings = strings, onDismiss = { showHelp = false })
+        SavingsHelpDialog(onDismiss = { showHelp = false })
     }
 }
 
 @Composable
-private fun HelpCard(strings: SavingsStrings, onOpen: () -> Unit) {
+private fun HelpCard(onOpen: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -214,49 +209,24 @@ private fun HelpCard(strings: SavingsStrings, onOpen: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(strings.helpTitle, style = MaterialTheme.typography.titleMedium)
+                Text("Помощь", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    strings.helpSubtitle,
+                    "Инструкция по расчёту, отметкам, балансу и прогнозу.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
             Button(onClick = onOpen) {
-                Text(strings.open)
+                Text("Открыть")
             }
         }
     }
 }
 
 @Composable
-private fun LanguageCard(
-    state: SavingsUiState,
-    strings: SavingsStrings,
-    onLanguageChange: (AppLanguage) -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(strings.languageTitle, style = MaterialTheme.typography.titleMedium)
-            Text(strings.languageSubtitle, style = MaterialTheme.typography.bodyMedium)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppLanguage.entries.forEach { language ->
-                    Button(
-                        onClick = { onLanguageChange(language) },
-                        enabled = state.settings.language != language,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(strings.languageOption(language))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SavingsHelpDialog(strings: SavingsStrings, onDismiss: () -> Unit) {
+private fun SavingsHelpDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.helpDialogTitle) },
+        title = { Text("Помощь и инструкция") },
         text = {
             Column(
                 modifier = Modifier
@@ -264,14 +234,14 @@ private fun SavingsHelpDialog(strings: SavingsStrings, onDismiss: () -> Unit) {
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                strings.helpSections.forEach { (title, body) ->
+                helpSections.forEach { (title, body) ->
                     InstructionSection(title = title, body = body)
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(strings.understood)
+                Text("Понятно")
             }
         }
     )
@@ -288,7 +258,6 @@ private fun InstructionSection(title: String, body: String) {
 @Composable
 private fun AccumulationPeriodCard(
     state: SavingsUiState,
-    strings: SavingsStrings,
     onStartDateChange: (LocalDate) -> Unit,
     onEndDateChange: (LocalDate) -> Unit
 ) {
@@ -298,21 +267,19 @@ private fun AccumulationPeriodCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(strings.accumulationPeriod, style = MaterialTheme.typography.titleMedium)
+            Text("Период накоплений", style = MaterialTheme.typography.titleMedium)
             DateSettingRow(
-                title = strings.start,
+                title = "Начало",
                 date = state.settings.accumulationStartDate(year),
                 minDate = minDate,
                 maxDate = maxDate,
-                strings = strings,
                 onDateChange = onStartDateChange
             )
             DateSettingRow(
-                title = strings.end,
+                title = "Конец",
                 date = state.settings.accumulationEndDate(year),
                 minDate = minDate,
                 maxDate = maxDate,
-                strings = strings,
                 onDateChange = onEndDateChange
             )
         }
@@ -325,10 +292,10 @@ private fun DateSettingRow(
     date: LocalDate,
     minDate: LocalDate,
     maxDate: LocalDate,
-    strings: SavingsStrings,
     onDateChange: (LocalDate) -> Unit
 ) {
-    val context = LocalContext.current
+    var showDatePicker by remember { mutableStateOf(false) }
+    val formatter = remember { DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -337,33 +304,80 @@ private fun DateSettingRow(
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(strings.fullDate(date), style = MaterialTheme.typography.bodyMedium)
+            Text(date.format(formatter), style = MaterialTheme.typography.bodyMedium)
         }
-        Button(
-            onClick = {
-                DatePickerDialog(
-                    context,
-                    { _, selectedYear, selectedMonth, selectedDay ->
-                        onDateChange(LocalDate.of(selectedYear, selectedMonth + 1, selectedDay))
-                    },
-                    date.year,
-                    date.monthValue - 1,
-                    date.dayOfMonth
-                ).apply {
-                    datePicker.minDate = minDate.toPickerMillis()
-                    datePicker.maxDate = maxDate.toPickerMillis()
-                }.show()
+        Button(onClick = { showDatePicker = true }) {
+            Text("Выбрать")
+        }
+    }
+
+    if (showDatePicker) {
+        SavingsDatePickerDialog(
+            initialDate = date,
+            minDate = minDate,
+            maxDate = maxDate,
+            onDismiss = { showDatePicker = false },
+            onDateChange = onDateChange
+        )
+    }
+}
+
+@Composable
+private fun SavingsDatePickerDialog(
+    initialDate: LocalDate,
+    minDate: LocalDate,
+    maxDate: LocalDate,
+    onDismiss: () -> Unit,
+    onDateChange: (LocalDate) -> Unit
+) {
+    val selectableDates = remember(minDate, maxDate) {
+        object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                val date = utcTimeMillis.toUtcLocalDate()
+                return !date.isBefore(minDate) && !date.isAfter(maxDate)
             }
-        ) {
-            Text(strings.select)
+
+            override fun isSelectableYear(year: Int): Boolean {
+                return year in minDate.year..maxDate.year
+            }
         }
+    }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDate.toUtcMillis(),
+        initialDisplayedMonthMillis = initialDate.toUtcMillis(),
+        yearRange = minDate.year..maxDate.year,
+        selectableDates = selectableDates
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val selectedDate = datePickerState.selectedDateMillis
+                        ?.toUtcLocalDate()
+                        ?.coerceIn(minDate, maxDate)
+                        ?: initialDate
+                    onDateChange(selectedDate)
+                    onDismiss()
+                }
+            ) {
+                Text("Выбрать")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Назад")
+            }
+        }
+    ) {
+        DatePicker(state = datePickerState)
     }
 }
 
 @Composable
 private fun PermissionCard(
     state: NotificationPermissionUiState,
-    strings: SavingsStrings,
     onRequestNotificationPermission: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit
 ) {
@@ -371,22 +385,22 @@ private fun PermissionCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(strings.notificationPermissions, style = MaterialTheme.typography.titleMedium)
+            Text("Разрешения уведомлений", style = MaterialTheme.typography.titleMedium)
 
             if (!state.notificationsGranted) {
-                Text(strings.notificationsDisabled)
+                Text("Уведомления выключены. Без разрешения напоминания и месячные отчёты не будут показаны.")
                 if (state.canRequestNotifications) {
                     Button(onClick = onRequestNotificationPermission) {
-                        Text(strings.allowNotifications)
+                        Text("Разрешить уведомления")
                     }
                 }
             }
 
             if (!state.exactAlarmsGranted) {
-                Text(strings.exactAlarmsDisabled)
+                Text("Точные будильники выключены. Напоминания могут приходить не строго в заданное время.")
                 if (state.canRequestExactAlarms) {
                     Button(onClick = onOpenExactAlarmSettings) {
-                        Text(strings.openAlarmSettings)
+                        Text("Открыть настройки будильников")
                     }
                 }
             }
@@ -399,10 +413,9 @@ private fun TimeSettingCard(
     title: String,
     hour: Int,
     minute: Int,
-    strings: SavingsStrings,
     onTimeChange: (Int, Int) -> Unit
 ) {
-    val context = LocalContext.current
+    var showTimePicker by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -416,23 +429,62 @@ private fun TimeSettingCard(
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(formatTime(hour, minute), style = MaterialTheme.typography.bodyMedium)
             }
-            Button(
-                onClick = {
-                    TimePickerDialog(
-                        context,
-                        { _, selectedHour, selectedMinute ->
-                            onTimeChange(selectedHour, selectedMinute)
-                        },
-                        hour,
-                        minute,
-                        true
-                    ).show()
-                }
-            ) {
-                Text(strings.change)
+            Button(onClick = { showTimePicker = true }) {
+                Text("Изменить")
             }
         }
     }
+
+    if (showTimePicker) {
+        SavingsTimePickerDialog(
+            title = title,
+            hour = hour,
+            minute = minute,
+            onDismiss = { showTimePicker = false },
+            onTimeChange = onTimeChange
+        )
+    }
+}
+
+@Composable
+private fun SavingsTimePickerDialog(
+    title: String,
+    hour: Int,
+    minute: Int,
+    onDismiss: () -> Unit,
+    onTimeChange: (Int, Int) -> Unit
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = hour.coerceIn(0, 23),
+        initialMinute = minute.coerceIn(0, 59),
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            TimeInput(
+                state = timePickerState,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onTimeChange(timePickerState.hour, timePickerState.minute)
+                    onDismiss()
+                }
+            ) {
+                Text("Изменить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Назад")
+            }
+        }
+    )
 }
 
 @Composable
@@ -463,6 +515,28 @@ private fun formatTime(hour: Int, minute: Int): String {
     return "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
 }
 
-private fun LocalDate.toPickerMillis(): Long {
-    return atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+private fun LocalDate.toUtcMillis(): Long {
+    return atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 }
+
+private fun Long.toUtcLocalDate(): LocalDate {
+    return Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+}
+
+private fun LocalDate.coerceIn(minDate: LocalDate, maxDate: LocalDate): LocalDate {
+    return when {
+        isBefore(minDate) -> minDate
+        isAfter(maxDate) -> maxDate
+        else -> this
+    }
+}
+
+private val helpSections = listOf(
+    "Что это за приложение" to "Календарь накоплений помогает откладывать деньги по дням. Вы выбираете период, сумму и режим расчёта, а приложение показывает план, баланс и отмеченные взносы.",
+    "Как начать" to "Откройте настройки, задайте базовую ставку или ровную сумму, выберите первый и последний день накоплений. По умолчанию период длится с 1 января по 31 декабря.",
+    "Как считается сумма" to "В режиме роста первый день выбранного периода равен 1 × ставка, второй день - 2 × ставка, третий - 3 × ставка. Например, с 6 по 10 мая при ставке 1 ₽ план будет 15 ₽. В режиме ровных сумм каждый день равен указанной сумме.",
+    "Как отмечать дни" to "На вкладке «Сегодня» можно отметить текущий день. В календаре можно выбрать прошлый или будущий день внутри периода и отметить взнос вручную. Прошлые дни доступны, если включена настройка разрешения прошлых отметок.",
+    "Баланс и прогноз" to "Баланс показывает только фактически подтверждённые взносы внутри выбранного периода. Прогноз считает баланс плюс оставшийся план от сегодняшнего дня до конца периода, не догоняя пропущенные прошлые дни автоматически.",
+    "Изменение настроек" to "Новая ставка, режим и период применяются к новым расчётам. Уже подтверждённые взносы хранят свою фактическую сумму и не пересчитываются задним числом.",
+    "Зачем пользоваться" to "Так проще превратить накопления в регулярную привычку: видно, сколько нужно отложить сегодня, какие дни уже закрыты и какой результат ожидается к концу периода."
+)

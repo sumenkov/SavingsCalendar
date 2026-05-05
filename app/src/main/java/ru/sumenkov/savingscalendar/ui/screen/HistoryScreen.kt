@@ -22,14 +22,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ru.sumenkov.savingscalendar.data.db.SavingsEntry
-import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun HistoryScreen(
     state: SavingsUiState,
-    strings: SavingsStrings,
     onDeleteDate: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -42,18 +42,17 @@ fun HistoryScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = strings.historyTitle(state.yearTotal, state.settings.currencySymbol),
+            text = "История: ${state.yearTotal} ${state.settings.currencySymbol}",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
 
         if (state.entries.isEmpty()) {
-            Text(strings.historyEmpty)
+            Text("Пока нет подтверждённых взносов. Первая монетка ещё ждёт своего часа.")
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.entries) { entry ->
                     HistoryEntryCard(
-                        strings = strings,
                         entry = entry,
                         currencySymbol = state.settings.currencySymbol,
                         onDelete = { entryToDelete = entry }
@@ -65,7 +64,6 @@ fun HistoryScreen(
 
     entryToDelete?.let { entry ->
         CancelContributionDialog(
-            strings = strings,
             date = entry.date,
             amount = entry.amount,
             currencySymbol = state.settings.currencySymbol,
@@ -80,7 +78,6 @@ fun HistoryScreen(
 
 @Composable
 private fun HistoryEntryCard(
-    strings: SavingsStrings,
     entry: SavingsEntry,
     currencySymbol: String,
     onDelete: () -> Unit
@@ -98,10 +95,10 @@ private fun HistoryEntryCard(
             ) {
                 Column {
                     Text(
-                        text = strings.monthDay(entry.date),
+                        text = entry.date.format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru"))),
                         fontWeight = FontWeight.SemiBold
                     )
-                    Text(strings.dayYear(entry.dayOfYear))
+                    Text("День №${entry.dayOfYear}")
                 }
                 Text(
                     text = "${entry.amount} $currencySymbol",
@@ -110,7 +107,7 @@ private fun HistoryEntryCard(
                 )
             }
             Button(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-                Text(strings.cancelContribution)
+                Text("Отменить взнос")
             }
         }
     }
@@ -118,27 +115,26 @@ private fun HistoryEntryCard(
 
 @Composable
 private fun CancelContributionDialog(
-    strings: SavingsStrings,
     date: LocalDate,
     amount: Long,
     currencySymbol: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    val dateText = strings.fullDate(date)
+    val dateText = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.cancelContributionQuestion()) },
-        text = { Text(strings.cancelContributionFor(dateText, amount, currencySymbol)) },
+        title = { Text("Отменить взнос?") },
+        text = { Text("Отменить взнос за $dateText на сумму $amount $currencySymbol?") },
         confirmButton = {
             Button(onClick = onConfirm) {
-                Text(strings.cancelContribution)
+                Text("Отменить взнос")
             }
         },
         dismissButton = {
             Button(onClick = onDismiss) {
-                Text(strings.back)
+                Text("Назад")
             }
         }
     )

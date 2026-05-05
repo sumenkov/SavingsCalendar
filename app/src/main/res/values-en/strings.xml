@@ -1,7 +1,0 @@
-<resources>
-    <string name="app_name">Savings Calendar</string>
-    <string name="notification_channel_daily_name">Daily reminders</string>
-    <string name="notification_channel_daily_description">Daily contribution reminders</string>
-    <string name="notification_channel_monthly_name">Monthly reports</string>
-    <string name="notification_channel_monthly_description">Encouraging month-end results</string>
-</resources>

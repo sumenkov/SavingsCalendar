@@ -20,11 +20,11 @@ import ru.sumenkov.savingscalendar.ui.screen.HistoryScreen
 import ru.sumenkov.savingscalendar.ui.screen.HomeScreen
 import ru.sumenkov.savingscalendar.ui.screen.SettingsScreen
 
-enum class AppTab(val iconRes: Int) {
-    Home(R.drawable.ic_tab_today),
-    Calendar(R.drawable.ic_tab_calendar),
-    History(R.drawable.ic_tab_history),
-    Settings(R.drawable.ic_tab_settings)
+enum class AppTab(val title: String, val iconRes: Int) {
+    Home("Сегодня", R.drawable.ic_tab_today),
+    Calendar("Календарь", R.drawable.ic_tab_calendar),
+    History("История", R.drawable.ic_tab_history),
+    Settings("Настройки", R.drawable.ic_tab_settings)
 }
 
 @Composable
@@ -35,7 +35,6 @@ fun SavingsApp(
     onOpenExactAlarmSettings: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
-    val strings = SavingsStrings.from(state.settings.language)
     var selectedTab by remember { mutableStateOf(AppTab.Home) }
 
     Scaffold(
@@ -51,7 +50,7 @@ fun SavingsApp(
                                 contentDescription = null
                             )
                         },
-                        label = { Text(tab.title(strings)) }
+                        label = { Text(tab.title) }
                     )
                 }
             }
@@ -61,13 +60,11 @@ fun SavingsApp(
         when (selectedTab) {
             AppTab.Home -> HomeScreen(
                 state = state,
-                strings = strings,
                 onConfirmToday = viewModel::confirmToday,
                 modifier = modifier
             )
             AppTab.Calendar -> CalendarScreen(
                 state = state,
-                strings = strings,
                 onConfirmDate = viewModel::confirmDate,
                 onDeleteDate = viewModel::deleteDate,
                 amountForDate = viewModel::plannedAmountFor,
@@ -76,13 +73,11 @@ fun SavingsApp(
             )
             AppTab.History -> HistoryScreen(
                 state = state,
-                strings = strings,
                 onDeleteDate = viewModel::deleteDate,
                 modifier = modifier
             )
             AppTab.Settings -> SettingsScreen(
                 state = state,
-                strings = strings,
                 notificationPermissionState = notificationPermissionState,
                 onBaseRateChange = viewModel::updateBaseRate,
                 onRemindersEnabledChange = viewModel::setRemindersEnabled,
@@ -94,20 +89,10 @@ fun SavingsApp(
                 onAccumulationStartDateChange = viewModel::setAccumulationStartDate,
                 onAccumulationEndDateChange = viewModel::setAccumulationEndDate,
                 onAmountModeChange = viewModel::setAmountMode,
-                onLanguageChange = viewModel::setLanguage,
                 onRequestNotificationPermission = onRequestNotificationPermission,
                 onOpenExactAlarmSettings = onOpenExactAlarmSettings,
                 modifier = modifier
             )
         }
-    }
-}
-
-private fun AppTab.title(strings: SavingsStrings): String {
-    return when (this) {
-        AppTab.Home -> strings.homeTab
-        AppTab.Calendar -> strings.calendarTab
-        AppTab.History -> strings.historyTab
-        AppTab.Settings -> strings.settingsTab
     }
 }

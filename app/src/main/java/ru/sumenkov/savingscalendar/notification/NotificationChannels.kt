@@ -4,7 +4,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import ru.sumenkov.savingscalendar.R
 
 object NotificationChannels {
     const val DAILY_CHANNEL_ID = "daily_savings"
@@ -17,17 +16,17 @@ object NotificationChannels {
         val channels = listOf(
             NotificationChannel(
                 DAILY_CHANNEL_ID,
-                context.getString(R.string.notification_channel_daily_name),
+                "Ежедневные напоминания",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = context.getString(R.string.notification_channel_daily_description)
+                description = "Напоминания о ежедневном взносе"
             },
             NotificationChannel(
                 MONTHLY_CHANNEL_ID,
-                context.getString(R.string.notification_channel_monthly_name),
+                "Месячные отчёты",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = context.getString(R.string.notification_channel_monthly_description)
+                description = "Ободряющие итоги последнего дня месяца"
             }
         )
         manager.createNotificationChannels(channels)

@@ -16,8 +16,7 @@ data class AppSettings(
     val currencySymbol: String = "₽",
     val accumulationStart: MonthDay = MonthDay.of(1, 1),
     val accumulationEnd: MonthDay = MonthDay.of(12, 31),
-    val amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH,
-    val language: AppLanguage = AppLanguage.SYSTEM
+    val amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
 ) {
     fun accumulationStartDate(year: Int): LocalDate {
         return accumulationStart.atYear(year)

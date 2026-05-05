@@ -31,7 +31,6 @@ class SettingsRepository(
         val accumulationStart = stringPreferencesKey("accumulation_start")
         val accumulationEnd = stringPreferencesKey("accumulation_end")
         val amountMode = stringPreferencesKey("amount_mode")
-        val language = stringPreferencesKey("language")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -53,8 +52,7 @@ class SettingsRepository(
                 value = prefs[Keys.accumulationEnd],
                 fallback = MonthDay.of(12, 31)
             ),
-            amountMode = parseAmountMode(prefs[Keys.amountMode]),
-            language = parseLanguage(prefs[Keys.language])
+            amountMode = parseAmountMode(prefs[Keys.amountMode])
         )
     }
 
@@ -125,10 +123,6 @@ class SettingsRepository(
         context.dataStore.edit { prefs -> prefs[Keys.amountMode] = mode.name }
     }
 
-    suspend fun setLanguage(language: AppLanguage) {
-        context.dataStore.edit { prefs -> prefs[Keys.language] = language.name }
-    }
-
     private fun parseMonthDay(value: String?, fallback: MonthDay): MonthDay {
         return value
             ?.let { runCatching { MonthDay.parse(it) }.getOrNull() }
@@ -139,11 +133,5 @@ class SettingsRepository(
         return value
             ?.let { stored -> SavingsAmountMode.entries.firstOrNull { it.name == stored } }
             ?: SavingsAmountMode.DAILY_GROWTH
-    }
-
-    private fun parseLanguage(value: String?): AppLanguage {
-        return value
-            ?.let { stored -> AppLanguage.entries.firstOrNull { it.name == stored } }
-            ?: AppLanguage.SYSTEM
     }
 }

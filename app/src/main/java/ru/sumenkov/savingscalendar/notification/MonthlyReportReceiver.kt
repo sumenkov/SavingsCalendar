@@ -18,8 +18,9 @@ import ru.sumenkov.savingscalendar.R
 import ru.sumenkov.savingscalendar.data.db.AppDatabase
 import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
-import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
 
 class MonthlyReportReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -31,8 +32,7 @@ class MonthlyReportReceiver : BroadcastReceiver() {
                 val repository = SavingsRepository(AppDatabase.get(context).savingsDao())
                 val yearMonth = YearMonth.now()
                 val report = repository.monthlyReport(yearMonth)
-                val strings = SavingsStrings.from(settings.language)
-                val monthName = strings.monthName(yearMonth)
+                val monthName = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
 
                 val openIntent = PendingIntent.getActivity(
                     context,
@@ -43,23 +43,13 @@ class MonthlyReportReceiver : BroadcastReceiver() {
 
                 val notification = NotificationCompat.Builder(context, NotificationChannels.MONTHLY_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notification_small)
-                    .setContentTitle(strings.monthlyNotificationTitle(monthName))
-                    .setContentText(
-                        strings.monthlyNotificationShort(
-                            monthTotal = report.monthTotal,
-                            yearTotal = report.yearTotal,
-                            currency = settings.currencySymbol
-                        )
-                    )
+                    .setContentTitle("Итоги месяца: $monthName")
+                    .setContentText("За месяц: ${report.monthTotal} ${settings.currencySymbol}, всего за год: ${report.yearTotal} ${settings.currencySymbol}.")
                     .setStyle(
                         NotificationCompat.BigTextStyle().bigText(
-                            strings.monthlyNotificationLong(
-                                monthTotal = report.monthTotal,
-                                yearTotal = report.yearTotal,
-                                completedDays = report.completedDaysInMonth,
-                                daysInMonth = report.daysInMonth,
-                                currency = settings.currencySymbol
-                            )
+                            "За месяц внесено ${report.monthTotal} ${settings.currencySymbol}. " +
+                                "Всего с начала года: ${report.yearTotal} ${settings.currencySymbol}. " +
+                                "Отмечено дней: ${report.completedDaysInMonth} из ${report.daysInMonth}."
                         )
                     )
                     .setContentIntent(openIntent)

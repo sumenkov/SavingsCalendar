@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
-import ru.sumenkov.savingscalendar.data.settings.AppLanguage
 import ru.sumenkov.savingscalendar.data.settings.AppSettings
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
@@ -122,12 +121,6 @@ class SavingsViewModel(
     fun setAmountMode(mode: SavingsAmountMode) {
         viewModelScope.launch {
             settingsRepository.setAmountMode(mode)
-        }
-    }
-
-    fun setLanguage(language: AppLanguage) {
-        viewModelScope.launch {
-            settingsRepository.setLanguage(language)
         }
     }
 

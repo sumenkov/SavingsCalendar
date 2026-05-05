@@ -1,7 +1,3 @@
 <resources>
     <string name="app_name">Календарь накоплений</string>
-    <string name="notification_channel_daily_name">Ежедневные напоминания</string>
-    <string name="notification_channel_daily_description">Напоминания о ежедневном взносе</string>
-    <string name="notification_channel_monthly_name">Месячные отчёты</string>
-    <string name="notification_channel_monthly_description">Ободряющие итоги последнего дня месяца</string>
 </resources>
