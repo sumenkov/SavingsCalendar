@@ -42,6 +42,7 @@ fun CalendarScreen(
     onConfirmDate: (LocalDate) -> Unit,
     onDeleteDate: (LocalDate) -> Unit,
     amountForDate: (LocalDate) -> Long,
+    dayNumberForDate: (LocalDate) -> Int?,
     modifier: Modifier = Modifier
 ) {
     var yearMonth by remember(state.today.year) { mutableStateOf(YearMonth.from(state.today)) }
@@ -130,6 +131,7 @@ fun CalendarScreen(
             DayDetailsCard(
                 date = date,
                 amount = entry?.amount ?: if (inSavingsPeriod) amountForDate(date) else 0L,
+                dayNumberInPeriod = dayNumberForDate(date),
                 currencySymbol = state.settings.currencySymbol,
                 confirmed = entry != null,
                 baseRate = entry?.baseRate ?: state.settings.baseRate,
@@ -222,6 +224,7 @@ private fun DayCell(
 private fun DayDetailsCard(
     date: LocalDate,
     amount: Long,
+    dayNumberInPeriod: Int?,
     currencySymbol: String,
     confirmed: Boolean,
     baseRate: Long,
@@ -235,7 +238,13 @@ private fun DayDetailsCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dateText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("День №${date.dayOfYear}")
+            Text(
+                if (dayNumberInPeriod != null) {
+                    "День периода №$dayNumberInPeriod"
+                } else {
+                    "День года №${date.dayOfYear}"
+                }
+            )
             Text("Сумма: $amount $currencySymbol")
             Text("Ставка: $baseRate $currencySymbol")
             if (!inSavingsPeriod) {

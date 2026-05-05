@@ -28,8 +28,10 @@
 Режим суммы по умолчанию:
 
 ```text
-amount = dayOfYear * baseRate
+amount = dayNumberInPeriod * baseRate
 ```
+
+`dayNumberInPeriod` считается от выбранной даты начала накоплений.
 
 Режим ровных сумм:
 

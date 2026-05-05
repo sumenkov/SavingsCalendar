@@ -2,6 +2,7 @@ package ru.sumenkov.savingscalendar.domain
 
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 
 class SavingsCalculator {
     fun amountForDay(
@@ -21,9 +22,21 @@ class SavingsCalculator {
     fun amountForDate(
         date: LocalDate,
         baseRate: Long,
-        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH,
+        accumulationStartDate: LocalDate = LocalDate.of(date.year, 1, 1)
     ): Long {
-        return amountForDay(date.dayOfYear, baseRate, amountMode)
+        return amountForDay(
+            dayOfYear = dayNumberInPeriod(date, accumulationStartDate),
+            baseRate = baseRate,
+            amountMode = amountMode
+        )
+    }
+
+    fun dayNumberInPeriod(date: LocalDate, accumulationStartDate: LocalDate): Int {
+        require(date.year == accumulationStartDate.year) { "date and accumulationStartDate must be in the same year" }
+        require(!date.isBefore(accumulationStartDate)) { "date must be on or after accumulationStartDate" }
+
+        return ChronoUnit.DAYS.between(accumulationStartDate, date).toInt() + 1
     }
 
     fun fullYearPlan(
@@ -90,7 +103,16 @@ class SavingsCalculator {
         if (firstPlannedDate.isAfter(accumulationEndDate)) return confirmedBalance
 
         val futurePlan = sumDates(firstPlannedDate, accumulationEndDate) { date ->
-            if (date in confirmedDates) 0L else amountForDate(date, baseRate, amountMode)
+            if (date in confirmedDates) {
+                0L
+            } else {
+                amountForDate(
+                    date = date,
+                    baseRate = baseRate,
+                    amountMode = amountMode,
+                    accumulationStartDate = accumulationStartDate
+                )
+            }
         }
         return confirmedBalance + futurePlan
     }
@@ -105,7 +127,12 @@ class SavingsCalculator {
         require(!endDate.isBefore(startDate)) { "endDate must be on or after startDate" }
 
         return sumDates(startDate, endDate) { date ->
-            amountForDate(date, baseRate, amountMode)
+            amountForDate(
+                date = date,
+                baseRate = baseRate,
+                amountMode = amountMode,
+                accumulationStartDate = startDate
+            )
         }
     }
 

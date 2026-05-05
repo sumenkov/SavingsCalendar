@@ -43,7 +43,12 @@ class SavingsViewModel(
             val today = LocalDate.now()
             if (!canConfirmDate(date, today, settings)) return@launch
 
-            savingsRepository.confirmDate(date, settings.baseRate, settings.amountMode)
+            savingsRepository.confirmDate(
+                date = date,
+                baseRate = settings.baseRate,
+                amountMode = settings.amountMode,
+                accumulationStartDate = settings.accumulationStartDate(date.year)
+            )
             refreshMonthlyReport()
         }
     }
@@ -121,7 +126,22 @@ class SavingsViewModel(
 
     fun plannedAmountFor(date: LocalDate): Long {
         val settings = _state.value.settings
-        return calculator.amountForDate(date, settings.baseRate, settings.amountMode)
+        return calculator.amountForDate(
+            date = date,
+            baseRate = settings.baseRate,
+            amountMode = settings.amountMode,
+            accumulationStartDate = settings.accumulationStartDate(date.year)
+        )
+    }
+
+    fun dayNumberInPeriodFor(date: LocalDate): Int? {
+        val settings = _state.value.settings
+        if (!settings.isDateInAccumulationPeriod(date)) return null
+
+        return calculator.dayNumberInPeriod(
+            date = date,
+            accumulationStartDate = settings.accumulationStartDate(date.year)
+        )
     }
 
     fun syncNotificationSchedule() {
@@ -134,15 +154,25 @@ class SavingsViewModel(
         viewModelScope.launch {
             combine(
                 savingsRepository.observeByYear(LocalDate.now().year),
-                savingsRepository.observeYearTotal(LocalDate.now().year),
                 settingsRepository.settings
-            ) { entries, yearTotal, settings ->
+            ) { entries, settings ->
                 val today = LocalDate.now()
+                val periodEntries = entries.filter { settings.isDateInAccumulationPeriod(it.date) }
+                val periodTotal = periodEntries.sumOf { it.amount }
+                val todayDayNumberInPeriod = if (settings.isDateInAccumulationPeriod(today)) {
+                    calculator.dayNumberInPeriod(
+                        date = today,
+                        accumulationStartDate = settings.accumulationStartDate(today.year)
+                    )
+                } else {
+                    null
+                }
                 val todayAmount = if (settings.isDateInAccumulationPeriod(today)) {
                     calculator.amountForDate(
                         date = today,
                         baseRate = settings.baseRate,
-                        amountMode = settings.amountMode
+                        amountMode = settings.amountMode,
+                        accumulationStartDate = settings.accumulationStartDate(today.year)
                     )
                 } else {
                     0L
@@ -151,13 +181,14 @@ class SavingsViewModel(
                 SavingsUiState(
                     today = today,
                     todayAmount = todayAmount,
+                    todayDayNumberInPeriod = todayDayNumberInPeriod,
                     todayConfirmed = todayConfirmed,
-                    yearTotal = yearTotal,
+                    yearTotal = periodTotal,
                     forecastToEndOfPeriod = calculator.forecastToEndOfPeriod(
                         today = today,
                         baseRate = settings.baseRate,
-                        confirmedDates = entries.map { it.date }.toSet(),
-                        confirmedBalance = yearTotal,
+                        confirmedDates = periodEntries.map { it.date }.toSet(),
+                        confirmedBalance = periodTotal,
                         amountMode = settings.amountMode,
                         accumulationStartDate = settings.accumulationStartDate(today.year),
                         accumulationEndDate = settings.accumulationEndDate(today.year)

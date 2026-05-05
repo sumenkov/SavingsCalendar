@@ -30,6 +30,28 @@ class SavingsCalculatorTest {
     }
 
     @Test
+    fun amountForDateUsesDayNumberFromAccumulationStart() {
+        val startDate = LocalDate.of(2026, 5, 6)
+
+        assertEquals(
+            1L,
+            calculator.amountForDate(
+                date = LocalDate.of(2026, 5, 6),
+                baseRate = 1L,
+                accumulationStartDate = startDate
+            )
+        )
+        assertEquals(
+            5L,
+            calculator.amountForDate(
+                date = LocalDate.of(2026, 5, 10),
+                baseRate = 1L,
+                accumulationStartDate = startDate
+            )
+        )
+    }
+
+    @Test
     fun fullYearPlanSupportsRegularAndLeapYears() {
         assertEquals(66_795L, calculator.fullYearPlan(year = 2025, baseRate = 1L))
         assertEquals(67_161L, calculator.fullYearPlan(year = 2024, baseRate = 1L))
@@ -70,11 +92,23 @@ class SavingsCalculatorTest {
     @Test
     fun plannedTotalUsesSelectedAccumulationPeriod() {
         assertEquals(
-            66L,
+            12L,
             calculator.plannedTotal(
                 startDate = LocalDate.of(2026, 1, 10),
                 endDate = LocalDate.of(2026, 1, 12),
                 baseRate = 2L
+            )
+        )
+    }
+
+    @Test
+    fun plannedTotalStartsGrowthFromSelectedPeriodStart() {
+        assertEquals(
+            15L,
+            calculator.plannedTotal(
+                startDate = LocalDate.of(2026, 5, 6),
+                endDate = LocalDate.of(2026, 5, 10),
+                baseRate = 1L
             )
         )
     }
@@ -133,7 +167,7 @@ class SavingsCalculatorTest {
             accumulationEndDate = LocalDate.of(2026, 1, 12)
         )
 
-        assertEquals(33L, forecast)
+        assertEquals(6L, forecast)
     }
 
     @Test
@@ -145,6 +179,20 @@ class SavingsCalculatorTest {
             confirmedBalance = 0L,
             accumulationStartDate = LocalDate.of(2026, 1, 1),
             accumulationEndDate = LocalDate.of(2026, 1, 5)
+        )
+
+        assertEquals(12L, forecast)
+    }
+
+    @Test
+    fun forecastUsesDayNumberFromAccumulationStart() {
+        val forecast = calculator.forecastToEndOfPeriod(
+            today = LocalDate.of(2026, 5, 8),
+            baseRate = 1L,
+            confirmedDates = emptySet(),
+            confirmedBalance = 0L,
+            accumulationStartDate = LocalDate.of(2026, 5, 6),
+            accumulationEndDate = LocalDate.of(2026, 5, 10)
         )
 
         assertEquals(12L, forecast)

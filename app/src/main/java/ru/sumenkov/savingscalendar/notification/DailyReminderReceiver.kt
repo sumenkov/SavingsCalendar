@@ -37,10 +37,14 @@ class DailyReminderReceiver : BroadcastReceiver() {
                     return@launch
                 }
 
-                val amount = SavingsCalculator().amountForDate(
+                val calculator = SavingsCalculator()
+                val startDate = settings.accumulationStartDate(today.year)
+                val dayNumberInPeriod = calculator.dayNumberInPeriod(today, startDate)
+                val amount = calculator.amountForDate(
                     date = today,
                     baseRate = settings.baseRate,
-                    amountMode = settings.amountMode
+                    amountMode = settings.amountMode,
+                    accumulationStartDate = startDate
                 )
 
                 val openIntent = PendingIntent.getActivity(
@@ -52,7 +56,7 @@ class DailyReminderReceiver : BroadcastReceiver() {
 
                 val notification = NotificationCompat.Builder(context, NotificationChannels.DAILY_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notification_small)
-                    .setContentTitle("Сегодня день №${today.dayOfYear}")
+                    .setContentTitle("Сегодня день периода №$dayNumberInPeriod")
                     .setContentText("Внесите $amount ${settings.currencySymbol} в накопления.")
                     .setContentIntent(openIntent)
                     .setAutoCancel(true)

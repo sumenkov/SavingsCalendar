@@ -68,6 +68,7 @@ fun SavingsApp(
                 onConfirmDate = viewModel::confirmDate,
                 onDeleteDate = viewModel::deleteDate,
                 amountForDate = viewModel::plannedAmountFor,
+                dayNumberForDate = viewModel::dayNumberInPeriodFor,
                 modifier = modifier
             )
             AppTab.History -> HistoryScreen(

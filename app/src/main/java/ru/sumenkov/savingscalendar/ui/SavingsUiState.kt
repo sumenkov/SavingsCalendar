@@ -8,6 +8,7 @@ import java.time.LocalDate
 data class SavingsUiState(
     val today: LocalDate = LocalDate.now(),
     val todayAmount: Long = 0L,
+    val todayDayNumberInPeriod: Int? = null,
     val todayConfirmed: Boolean = false,
     val yearTotal: Long = 0L,
     val forecastToEndOfPeriod: Long = 0L,

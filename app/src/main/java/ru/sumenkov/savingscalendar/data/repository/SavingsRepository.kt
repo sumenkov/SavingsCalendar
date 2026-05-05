@@ -23,9 +23,15 @@ class SavingsRepository(
     suspend fun confirmDate(
         date: LocalDate,
         baseRate: Long,
-        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH,
+        accumulationStartDate: LocalDate = LocalDate.of(date.year, 1, 1)
     ) {
-        val amount = calculator.amountForDate(date, baseRate, amountMode)
+        val amount = calculator.amountForDate(
+            date = date,
+            baseRate = baseRate,
+            amountMode = amountMode,
+            accumulationStartDate = accumulationStartDate
+        )
         dao.upsert(
             SavingsEntry(
                 date = date,

@@ -80,7 +80,8 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "День №${state.today.dayOfYear}",
+                text = state.todayDayNumberInPeriod?.let { "День периода №$it" }
+                    ?: "Сегодня вне периода",
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
