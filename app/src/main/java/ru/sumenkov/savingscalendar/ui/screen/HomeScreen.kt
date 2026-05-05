@@ -24,6 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ru.sumenkov.savingscalendar.R
+import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -67,6 +68,8 @@ fun HomeScreen(
 
 @Composable
 private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
+    val todayInPeriod = state.settings.isDateInAccumulationPeriod(state.today)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -81,6 +84,14 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
+                text = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
+                    "Режим: ровная сумма"
+                } else {
+                    "Режим: рост по дню года"
+                },
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
                 text = "${state.todayAmount} ${state.settings.currencySymbol}",
                 style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.primary,
@@ -88,10 +99,16 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
             )
             Button(
                 onClick = onConfirmToday,
-                enabled = !state.todayConfirmed,
+                enabled = !state.todayConfirmed && todayInPeriod,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (state.todayConfirmed) "Взнос за сегодня внесён" else "Внести взнос")
+                Text(
+                    when {
+                        state.todayConfirmed -> "Взнос за сегодня внесён"
+                        !todayInPeriod -> "Сегодня вне периода"
+                        else -> "Внести взнос"
+                    }
+                )
             }
         }
     }
@@ -99,6 +116,10 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
 
 @Composable
 private fun TotalsCard(state: SavingsUiState) {
+    val formatter = DateTimeFormatter.ofPattern("d MMMM", Locale("ru"))
+    val periodStart = state.settings.accumulationStartDate(state.today.year).format(formatter)
+    val periodEnd = state.settings.accumulationEndDate(state.today.year).format(formatter)
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Текущий баланс", style = MaterialTheme.typography.titleMedium)
@@ -108,13 +129,14 @@ private fun TotalsCard(state: SavingsUiState) {
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(4.dp))
-            Text("План до конца года")
+            Text("План до конца периода")
             Text(
-                text = "${state.forecastToEndOfYear} ${state.settings.currencySymbol}",
+                text = "${state.forecastToEndOfPeriod} ${state.settings.currencySymbol}",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.secondary,
                 fontWeight = FontWeight.SemiBold
             )
+            Text("Период: $periodStart - $periodEnd")
         }
     }
 }

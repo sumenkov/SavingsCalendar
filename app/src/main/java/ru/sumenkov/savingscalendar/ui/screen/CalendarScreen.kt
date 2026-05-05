@@ -48,6 +48,8 @@ fun CalendarScreen(
     var selectedDate by remember(state.today) { mutableStateOf<LocalDate?>(state.today) }
     var dateToDelete by remember { mutableStateOf<LocalDate?>(null) }
     val confirmedDates = state.entries.map { it.date }.toSet()
+    val accumulationStartDate = state.settings.accumulationStartDate(yearMonth.year)
+    val accumulationEndDate = state.settings.accumulationEndDate(yearMonth.year)
     val firstDayOffset = yearMonth.atDay(1).dayOfWeek.value - 1
     val days = List(firstDayOffset) { null } + (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
     val canGoPrevious = yearMonth.monthValue > 1
@@ -114,6 +116,8 @@ fun CalendarScreen(
                         today = date == state.today,
                         selected = date == selectedDate,
                         currentDate = state.today,
+                        inSavingsPeriod = !date.isBefore(accumulationStartDate) &&
+                            !date.isAfter(accumulationEndDate),
                         onClick = { selectedDate = date }
                     )
                 }
@@ -122,15 +126,17 @@ fun CalendarScreen(
 
         selectedDate?.let { date ->
             val entry = state.entries.firstOrNull { it.date == date }
+            val inSavingsPeriod = state.settings.isDateInAccumulationPeriod(date)
             DayDetailsCard(
                 date = date,
-                amount = entry?.amount ?: amountForDate(date),
+                amount = entry?.amount ?: if (inSavingsPeriod) amountForDate(date) else 0L,
                 currencySymbol = state.settings.currencySymbol,
                 confirmed = entry != null,
                 baseRate = entry?.baseRate ?: state.settings.baseRate,
+                inSavingsPeriod = inSavingsPeriod,
                 canConfirm = entry == null &&
-                    !date.isAfter(state.today) &&
-                    (date == state.today || state.settings.allowPastDays),
+                    inSavingsPeriod &&
+                    (!date.isBefore(state.today) || state.settings.allowPastDays),
                 onConfirm = { onConfirmDate(date) },
                 onDelete = { dateToDelete = date }
             )
@@ -177,18 +183,21 @@ private fun DayCell(
     today: Boolean,
     selected: Boolean,
     currentDate: LocalDate,
+    inSavingsPeriod: Boolean,
     onClick: () -> Unit
 ) {
     val container = when {
         confirmed -> MaterialTheme.colorScheme.primary
         today -> MaterialTheme.colorScheme.secondary
         selected -> MaterialTheme.colorScheme.tertiaryContainer
+        !inSavingsPeriod -> MaterialTheme.colorScheme.surfaceVariant
         date.isBefore(currentDate) -> MaterialTheme.colorScheme.errorContainer
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
     val textColor = when {
-        confirmed || today -> MaterialTheme.colorScheme.onPrimary
+        confirmed -> MaterialTheme.colorScheme.onPrimary
+        today -> MaterialTheme.colorScheme.onSecondary
         selected -> MaterialTheme.colorScheme.onTertiaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -216,6 +225,7 @@ private fun DayDetailsCard(
     currencySymbol: String,
     confirmed: Boolean,
     baseRate: Long,
+    inSavingsPeriod: Boolean,
     canConfirm: Boolean,
     onConfirm: () -> Unit,
     onDelete: () -> Unit
@@ -228,6 +238,9 @@ private fun DayDetailsCard(
             Text("День №${date.dayOfYear}")
             Text("Сумма: $amount $currencySymbol")
             Text("Ставка: $baseRate $currencySymbol")
+            if (!inSavingsPeriod) {
+                Text("День вне периода накоплений.")
+            }
             Text(if (confirmed) "Статус: взнос внесён" else "Статус: не отмечено")
             if (confirmed) {
                 Button(
@@ -242,7 +255,13 @@ private fun DayDetailsCard(
                     enabled = canConfirm,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (canConfirm) "Отметить день" else "Нельзя отметить этот день")
+                    Text(
+                        when {
+                            canConfirm -> "Отметить день"
+                            !inSavingsPeriod -> "Вне периода накоплений"
+                            else -> "Нельзя отметить этот день"
+                        }
+                    )
                 }
             }
         }

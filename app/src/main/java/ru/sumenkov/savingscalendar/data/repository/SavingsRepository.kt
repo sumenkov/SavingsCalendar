@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import ru.sumenkov.savingscalendar.data.db.SavingsDao
 import ru.sumenkov.savingscalendar.data.db.SavingsEntry
 import ru.sumenkov.savingscalendar.domain.MonthlyReport
+import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.domain.SavingsCalculator
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -19,8 +20,12 @@ class SavingsRepository(
 
     fun observeYearTotal(year: Int): Flow<Long> = dao.observeYearTotal(year)
 
-    suspend fun confirmDate(date: LocalDate, baseRate: Long) {
-        val amount = calculator.amountForDay(date.dayOfYear, baseRate)
+    suspend fun confirmDate(
+        date: LocalDate,
+        baseRate: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ) {
+        val amount = calculator.amountForDate(date, baseRate, amountMode)
         dao.upsert(
             SavingsEntry(
                 date = date,

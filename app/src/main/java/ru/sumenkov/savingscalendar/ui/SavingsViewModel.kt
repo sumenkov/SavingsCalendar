@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
 import ru.sumenkov.savingscalendar.data.settings.AppSettings
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
+import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.domain.SavingsCalculator
 import ru.sumenkov.savingscalendar.notification.ReminderScheduler
 import java.time.LocalDate
@@ -40,10 +41,9 @@ class SavingsViewModel(
         viewModelScope.launch {
             val settings = settingsRepository.settings.first()
             val today = LocalDate.now()
-            val canConfirm = date == today || (date.isBefore(today) && settings.allowPastDays)
-            if (!canConfirm || date.isAfter(today)) return@launch
+            if (!canConfirmDate(date, today, settings)) return@launch
 
-            savingsRepository.confirmDate(date, settings.baseRate)
+            savingsRepository.confirmDate(date, settings.baseRate, settings.amountMode)
             refreshMonthlyReport()
         }
     }
@@ -101,8 +101,27 @@ class SavingsViewModel(
         }
     }
 
+    fun setAccumulationStartDate(date: LocalDate) {
+        viewModelScope.launch {
+            settingsRepository.setAccumulationStartDate(date)
+        }
+    }
+
+    fun setAccumulationEndDate(date: LocalDate) {
+        viewModelScope.launch {
+            settingsRepository.setAccumulationEndDate(date)
+        }
+    }
+
+    fun setAmountMode(mode: SavingsAmountMode) {
+        viewModelScope.launch {
+            settingsRepository.setAmountMode(mode)
+        }
+    }
+
     fun plannedAmountFor(date: LocalDate): Long {
-        return calculator.amountForDay(date.dayOfYear, _state.value.settings.baseRate)
+        val settings = _state.value.settings
+        return calculator.amountForDate(date, settings.baseRate, settings.amountMode)
     }
 
     fun syncNotificationSchedule() {
@@ -119,18 +138,29 @@ class SavingsViewModel(
                 settingsRepository.settings
             ) { entries, yearTotal, settings ->
                 val today = LocalDate.now()
-                val todayAmount = calculator.amountForDay(today.dayOfYear, settings.baseRate)
+                val todayAmount = if (settings.isDateInAccumulationPeriod(today)) {
+                    calculator.amountForDate(
+                        date = today,
+                        baseRate = settings.baseRate,
+                        amountMode = settings.amountMode
+                    )
+                } else {
+                    0L
+                }
                 val todayConfirmed = entries.any { it.date == today }
                 SavingsUiState(
                     today = today,
                     todayAmount = todayAmount,
                     todayConfirmed = todayConfirmed,
                     yearTotal = yearTotal,
-                    forecastToEndOfYear = calculator.forecastToEndOfYear(
+                    forecastToEndOfPeriod = calculator.forecastToEndOfPeriod(
                         today = today,
                         baseRate = settings.baseRate,
                         confirmedDates = entries.map { it.date }.toSet(),
-                        confirmedBalance = yearTotal
+                        confirmedBalance = yearTotal,
+                        amountMode = settings.amountMode,
+                        accumulationStartDate = settings.accumulationStartDate(today.year),
+                        accumulationEndDate = settings.accumulationEndDate(today.year)
                     ),
                     entries = entries.sortedByDescending { it.date },
                     settings = settings,
@@ -165,6 +195,17 @@ class SavingsViewModel(
         } else {
             reminderScheduler.cancelMonthlyReport()
         }
+    }
+
+    private fun canConfirmDate(
+        date: LocalDate,
+        today: LocalDate,
+        settings: AppSettings
+    ): Boolean {
+        if (date.year != today.year) return false
+        if (!settings.isDateInAccumulationPeriod(date)) return false
+
+        return !date.isBefore(today) || settings.allowPastDays
     }
 }
 

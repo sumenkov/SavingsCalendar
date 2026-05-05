@@ -1,53 +1,142 @@
 package ru.sumenkov.savingscalendar.domain
 
 import java.time.LocalDate
-import java.time.Year
 import java.time.YearMonth
 
 class SavingsCalculator {
-    fun amountForDay(dayOfYear: Int, baseRate: Long): Long {
+    fun amountForDay(
+        dayOfYear: Int,
+        baseRate: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ): Long {
         require(dayOfYear in 1..366) { "dayOfYear must be in 1..366" }
         require(baseRate >= 0) { "baseRate must be non-negative" }
-        return dayOfYear.toLong() * baseRate
+
+        return when (amountMode) {
+            SavingsAmountMode.DAILY_GROWTH -> dayOfYear.toLong() * baseRate
+            SavingsAmountMode.FIXED -> baseRate
+        }
     }
 
-    fun fullYearPlan(year: Int, baseRate: Long): Long {
-        val days = Year.of(year).length()
-        return days.toLong() * (days + 1L) / 2L * baseRate
+    fun amountForDate(
+        date: LocalDate,
+        baseRate: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ): Long {
+        return amountForDay(date.dayOfYear, baseRate, amountMode)
     }
 
-    fun planFromDateToEndOfYear(date: LocalDate, baseRate: Long): Long {
-        val daysInYear = Year.of(date.year).length()
-        return (date.dayOfYear..daysInYear).sumOf { day -> amountForDay(day, baseRate) }
+    fun fullYearPlan(
+        year: Int,
+        baseRate: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ): Long {
+        return plannedTotal(
+            startDate = LocalDate.of(year, 1, 1),
+            endDate = LocalDate.of(year, 12, 31),
+            baseRate = baseRate,
+            amountMode = amountMode
+        )
+    }
+
+    fun planFromDateToEndOfYear(
+        date: LocalDate,
+        baseRate: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ): Long {
+        return plannedTotal(
+            startDate = date,
+            endDate = LocalDate.of(date.year, 12, 31),
+            baseRate = baseRate,
+            amountMode = amountMode
+        )
     }
 
     fun forecastToEndOfYear(
         today: LocalDate,
         baseRate: Long,
         confirmedDates: Set<LocalDate>,
-        confirmedBalance: Long
+        confirmedBalance: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ): Long {
+        return forecastToEndOfPeriod(
+            today = today,
+            baseRate = baseRate,
+            confirmedDates = confirmedDates,
+            confirmedBalance = confirmedBalance,
+            amountMode = amountMode,
+            accumulationStartDate = LocalDate.of(today.year, 1, 1),
+            accumulationEndDate = LocalDate.of(today.year, 12, 31)
+        )
+    }
+
+    fun forecastToEndOfPeriod(
+        today: LocalDate,
+        baseRate: Long,
+        confirmedDates: Set<LocalDate>,
+        confirmedBalance: Long,
+        accumulationStartDate: LocalDate,
+        accumulationEndDate: LocalDate,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
     ): Long {
         require(confirmedBalance >= 0) { "confirmedBalance must be non-negative" }
+        require(accumulationStartDate.year == today.year) { "accumulationStartDate must be in today's year" }
+        require(accumulationEndDate.year == today.year) { "accumulationEndDate must be in today's year" }
+        require(!accumulationEndDate.isBefore(accumulationStartDate)) {
+            "accumulationEndDate must be on or after accumulationStartDate"
+        }
 
-        val startDate = if (today in confirmedDates) today.plusDays(1) else today
-        if (startDate.year != today.year) return confirmedBalance
+        val firstPlannedDate = maxOf(today, accumulationStartDate)
+        if (firstPlannedDate.isAfter(accumulationEndDate)) return confirmedBalance
 
-        val daysInYear = Year.of(today.year).length()
-        val futurePlan = (startDate.dayOfYear..daysInYear).sumOf { day ->
-            val date = LocalDate.ofYearDay(today.year, day)
-            if (date in confirmedDates) 0L else amountForDay(day, baseRate)
+        val futurePlan = sumDates(firstPlannedDate, accumulationEndDate) { date ->
+            if (date in confirmedDates) 0L else amountForDate(date, baseRate, amountMode)
         }
         return confirmedBalance + futurePlan
     }
 
-    fun monthlyPlannedTotal(yearMonth: YearMonth, baseRate: Long): Long {
-        return (1..yearMonth.lengthOfMonth()).sumOf { dayOfMonth ->
-            val date = yearMonth.atDay(dayOfMonth)
-            amountForDay(date.dayOfYear, baseRate)
+    fun plannedTotal(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        baseRate: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ): Long {
+        require(startDate.year == endDate.year) { "startDate and endDate must be in the same year" }
+        require(!endDate.isBefore(startDate)) { "endDate must be on or after startDate" }
+
+        return sumDates(startDate, endDate) { date ->
+            amountForDate(date, baseRate, amountMode)
         }
+    }
+
+    fun monthlyPlannedTotal(
+        yearMonth: YearMonth,
+        baseRate: Long,
+        amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
+    ): Long {
+        return plannedTotal(
+            startDate = yearMonth.atDay(1),
+            endDate = yearMonth.atEndOfMonth(),
+            baseRate = baseRate,
+            amountMode = amountMode
+        )
     }
 
     fun isLastDayOfMonth(date: LocalDate): Boolean {
         return date.dayOfMonth == date.lengthOfMonth()
+    }
+
+    private fun sumDates(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        amountForDate: (LocalDate) -> Long
+    ): Long {
+        var total = 0L
+        var date = startDate
+        while (!date.isAfter(endDate)) {
+            total += amountForDate(date)
+            date = date.plusDays(1)
+        }
+        return total
     }
 }

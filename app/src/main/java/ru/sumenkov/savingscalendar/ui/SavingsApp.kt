@@ -85,6 +85,9 @@ fun SavingsApp(
                 onMonthlyReportTimeChange = viewModel::setMonthlyReportTime,
                 onAllowPastDaysChange = viewModel::setAllowPastDays,
                 onCurrencySymbolChange = viewModel::setCurrencySymbol,
+                onAccumulationStartDateChange = viewModel::setAccumulationStartDate,
+                onAccumulationEndDateChange = viewModel::setAccumulationEndDate,
+                onAmountModeChange = viewModel::setAmountMode,
                 onRequestNotificationPermission = onRequestNotificationPermission,
                 onOpenExactAlarmSettings = onOpenExactAlarmSettings,
                 modifier = modifier

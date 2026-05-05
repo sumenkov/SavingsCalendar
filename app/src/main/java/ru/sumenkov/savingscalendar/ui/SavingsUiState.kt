@@ -10,7 +10,7 @@ data class SavingsUiState(
     val todayAmount: Long = 0L,
     val todayConfirmed: Boolean = false,
     val yearTotal: Long = 0L,
-    val forecastToEndOfYear: Long = 0L,
+    val forecastToEndOfPeriod: Long = 0L,
     val entries: List<SavingsEntry> = emptyList(),
     val settings: AppSettings = AppSettings(),
     val monthlyReport: MonthlyReport? = null,

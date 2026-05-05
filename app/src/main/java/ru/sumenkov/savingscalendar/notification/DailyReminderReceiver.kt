@@ -27,7 +27,21 @@ class DailyReminderReceiver : BroadcastReceiver() {
                 val settingsRepository = SettingsRepository(context.applicationContext)
                 val settings = settingsRepository.settings.first()
                 val today = LocalDate.now()
-                val amount = SavingsCalculator().amountForDay(today.dayOfYear, settings.baseRate)
+                if (!settings.isDateInAccumulationPeriod(today)) {
+                    if (settings.remindersEnabled) {
+                        ReminderScheduler(context.applicationContext).scheduleDaily(
+                            settings.reminderHour,
+                            settings.reminderMinute
+                        )
+                    }
+                    return@launch
+                }
+
+                val amount = SavingsCalculator().amountForDate(
+                    date = today,
+                    baseRate = settings.baseRate,
+                    amountMode = settings.amountMode
+                )
 
                 val openIntent = PendingIntent.getActivity(
                     context,

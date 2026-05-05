@@ -1,5 +1,6 @@
 package ru.sumenkov.savingscalendar.ui.screen
 
+import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,8 +28,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.ui.NotificationPermissionUiState
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -41,6 +47,9 @@ fun SettingsScreen(
     onMonthlyReportTimeChange: (Int, Int) -> Unit,
     onAllowPastDaysChange: (Boolean) -> Unit,
     onCurrencySymbolChange: (String) -> Unit,
+    onAccumulationStartDateChange: (LocalDate) -> Unit,
+    onAccumulationEndDateChange: (LocalDate) -> Unit,
+    onAmountModeChange: (SavingsAmountMode) -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -65,14 +74,29 @@ fun SettingsScreen(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Базовая ставка", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
+                        "Ровная сумма"
+                    } else {
+                        "Базовая ставка"
+                    },
+                    style = MaterialTheme.typography.titleMedium
+                )
                 OutlinedTextField(
                     value = baseRateText,
                     onValueChange = { value ->
                         baseRateText = value.filter { it.isDigit() }
                         baseRateText.toLongOrNull()?.let(onBaseRateChange)
                     },
-                    label = { Text("Ставка, ${state.settings.currencySymbol}") },
+                    label = {
+                        Text(
+                            if (state.settings.amountMode == SavingsAmountMode.FIXED) {
+                                "Сумма в день, ${state.settings.currencySymbol}"
+                            } else {
+                                "Ставка, ${state.settings.currencySymbol}"
+                            }
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -89,9 +113,30 @@ fun SettingsScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Новая ставка влияет только на будущие отметки.")
+                Text("Изменение влияет только на будущие отметки.")
             }
         }
+
+        SettingSwitch(
+            title = "Ровные суммы",
+            subtitle = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
+                "Каждый день откладывается одна и та же сумма."
+            } else {
+                "Сумма растёт по формуле: день года × базовая ставка."
+            },
+            checked = state.settings.amountMode == SavingsAmountMode.FIXED,
+            onCheckedChange = { fixed ->
+                onAmountModeChange(
+                    if (fixed) SavingsAmountMode.FIXED else SavingsAmountMode.DAILY_GROWTH
+                )
+            }
+        )
+
+        AccumulationPeriodCard(
+            state = state,
+            onStartDateChange = onAccumulationStartDateChange,
+            onEndDateChange = onAccumulationEndDateChange
+        )
 
         PermissionCard(
             state = notificationPermissionState,
@@ -133,6 +178,78 @@ fun SettingsScreen(
             checked = state.settings.allowPastDays,
             onCheckedChange = onAllowPastDaysChange
         )
+    }
+}
+
+@Composable
+private fun AccumulationPeriodCard(
+    state: SavingsUiState,
+    onStartDateChange: (LocalDate) -> Unit,
+    onEndDateChange: (LocalDate) -> Unit
+) {
+    val year = state.today.year
+    val minDate = LocalDate.of(year, 1, 1)
+    val maxDate = LocalDate.of(year, 12, 31)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Период накоплений", style = MaterialTheme.typography.titleMedium)
+            DateSettingRow(
+                title = "Начало",
+                date = state.settings.accumulationStartDate(year),
+                minDate = minDate,
+                maxDate = maxDate,
+                onDateChange = onStartDateChange
+            )
+            DateSettingRow(
+                title = "Конец",
+                date = state.settings.accumulationEndDate(year),
+                minDate = minDate,
+                maxDate = maxDate,
+                onDateChange = onEndDateChange
+            )
+        }
+    }
+}
+
+@Composable
+private fun DateSettingRow(
+    title: String,
+    date: LocalDate,
+    minDate: LocalDate,
+    maxDate: LocalDate,
+    onDateChange: (LocalDate) -> Unit
+) {
+    val context = LocalContext.current
+    val formatter = remember { DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(date.format(formatter), style = MaterialTheme.typography.bodyMedium)
+        }
+        Button(
+            onClick = {
+                DatePickerDialog(
+                    context,
+                    { _, selectedYear, selectedMonth, selectedDay ->
+                        onDateChange(LocalDate.of(selectedYear, selectedMonth + 1, selectedDay))
+                    },
+                    date.year,
+                    date.monthValue - 1,
+                    date.dayOfMonth
+                ).apply {
+                    datePicker.minDate = minDate.toPickerMillis()
+                    datePicker.maxDate = maxDate.toPickerMillis()
+                }.show()
+            }
+        ) {
+            Text("Выбрать")
+        }
     }
 }
 
@@ -235,4 +352,8 @@ private fun SettingSwitch(
 
 private fun formatTime(hour: Int, minute: Int): String {
     return "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
+}
+
+private fun LocalDate.toPickerMillis(): Long {
+    return atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }

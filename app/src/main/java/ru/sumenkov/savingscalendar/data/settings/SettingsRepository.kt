@@ -9,6 +9,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
+import java.time.LocalDate
+import java.time.MonthDay
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -25,6 +28,9 @@ class SettingsRepository(
         val monthlyReportMinute = intPreferencesKey("monthly_report_minute")
         val allowPastDays = booleanPreferencesKey("allow_past_days")
         val currencySymbol = stringPreferencesKey("currency_symbol")
+        val accumulationStart = stringPreferencesKey("accumulation_start")
+        val accumulationEnd = stringPreferencesKey("accumulation_end")
+        val amountMode = stringPreferencesKey("amount_mode")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -37,7 +43,16 @@ class SettingsRepository(
             monthlyReportHour = prefs[Keys.monthlyReportHour] ?: 20,
             monthlyReportMinute = prefs[Keys.monthlyReportMinute] ?: 30,
             allowPastDays = prefs[Keys.allowPastDays] ?: true,
-            currencySymbol = prefs[Keys.currencySymbol] ?: "₽"
+            currencySymbol = prefs[Keys.currencySymbol] ?: "₽",
+            accumulationStart = parseMonthDay(
+                value = prefs[Keys.accumulationStart],
+                fallback = MonthDay.of(1, 1)
+            ),
+            accumulationEnd = parseMonthDay(
+                value = prefs[Keys.accumulationEnd],
+                fallback = MonthDay.of(12, 31)
+            ),
+            amountMode = parseAmountMode(prefs[Keys.amountMode])
         )
     }
 
@@ -74,5 +89,49 @@ class SettingsRepository(
     suspend fun setCurrencySymbol(value: String) {
         val normalized = value.trim().ifBlank { "₽" }.take(4)
         context.dataStore.edit { prefs -> prefs[Keys.currencySymbol] = normalized }
+    }
+
+    suspend fun setAccumulationStartDate(date: LocalDate) {
+        val nextStart = MonthDay.from(date)
+        context.dataStore.edit { prefs ->
+            val currentEnd = parseMonthDay(
+                value = prefs[Keys.accumulationEnd],
+                fallback = MonthDay.of(12, 31)
+            )
+            prefs[Keys.accumulationStart] = nextStart.toString()
+            if (currentEnd < nextStart) {
+                prefs[Keys.accumulationEnd] = nextStart.toString()
+            }
+        }
+    }
+
+    suspend fun setAccumulationEndDate(date: LocalDate) {
+        val nextEnd = MonthDay.from(date)
+        context.dataStore.edit { prefs ->
+            val currentStart = parseMonthDay(
+                value = prefs[Keys.accumulationStart],
+                fallback = MonthDay.of(1, 1)
+            )
+            if (currentStart > nextEnd) {
+                prefs[Keys.accumulationStart] = nextEnd.toString()
+            }
+            prefs[Keys.accumulationEnd] = nextEnd.toString()
+        }
+    }
+
+    suspend fun setAmountMode(mode: SavingsAmountMode) {
+        context.dataStore.edit { prefs -> prefs[Keys.amountMode] = mode.name }
+    }
+
+    private fun parseMonthDay(value: String?, fallback: MonthDay): MonthDay {
+        return value
+            ?.let { runCatching { MonthDay.parse(it) }.getOrNull() }
+            ?: fallback
+    }
+
+    private fun parseAmountMode(value: String?): SavingsAmountMode {
+        return value
+            ?.let { stored -> SavingsAmountMode.entries.firstOrNull { it.name == stored } }
+            ?: SavingsAmountMode.DAILY_GROWTH
     }
 }

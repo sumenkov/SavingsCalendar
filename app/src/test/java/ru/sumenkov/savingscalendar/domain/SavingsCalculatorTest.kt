@@ -18,9 +18,41 @@ class SavingsCalculatorTest {
     }
 
     @Test
+    fun fixedAmountModeUsesBaseRateForEveryDay() {
+        assertEquals(
+            5L,
+            calculator.amountForDay(
+                dayOfYear = 53,
+                baseRate = 5L,
+                amountMode = SavingsAmountMode.FIXED
+            )
+        )
+    }
+
+    @Test
     fun fullYearPlanSupportsRegularAndLeapYears() {
         assertEquals(66_795L, calculator.fullYearPlan(year = 2025, baseRate = 1L))
         assertEquals(67_161L, calculator.fullYearPlan(year = 2024, baseRate = 1L))
+    }
+
+    @Test
+    fun fullYearPlanSupportsFixedAmountMode() {
+        assertEquals(
+            3_650L,
+            calculator.fullYearPlan(
+                year = 2025,
+                baseRate = 10L,
+                amountMode = SavingsAmountMode.FIXED
+            )
+        )
+        assertEquals(
+            3_660L,
+            calculator.fullYearPlan(
+                year = 2024,
+                baseRate = 10L,
+                amountMode = SavingsAmountMode.FIXED
+            )
+        )
     }
 
     @Test
@@ -33,6 +65,18 @@ class SavingsCalculatorTest {
     fun monthlyPlannedTotalUsesRealDayOfYear() {
         val january2026 = YearMonth.of(2026, 1)
         assertEquals(496L, calculator.monthlyPlannedTotal(january2026, baseRate = 1L))
+    }
+
+    @Test
+    fun plannedTotalUsesSelectedAccumulationPeriod() {
+        assertEquals(
+            66L,
+            calculator.plannedTotal(
+                startDate = LocalDate.of(2026, 1, 10),
+                endDate = LocalDate.of(2026, 1, 12),
+                baseRate = 2L
+            )
+        )
     }
 
     @Test
@@ -76,5 +120,50 @@ class SavingsCalculatorTest {
         )
 
         assertEquals(66_792L, forecast)
+    }
+
+    @Test
+    fun forecastStartsFromAccumulationStartWhenTodayIsEarlier() {
+        val forecast = calculator.forecastToEndOfPeriod(
+            today = LocalDate.of(2026, 1, 3),
+            baseRate = 1L,
+            confirmedDates = emptySet(),
+            confirmedBalance = 0L,
+            accumulationStartDate = LocalDate.of(2026, 1, 10),
+            accumulationEndDate = LocalDate.of(2026, 1, 12)
+        )
+
+        assertEquals(33L, forecast)
+    }
+
+    @Test
+    fun forecastStopsAtAccumulationEndDate() {
+        val forecast = calculator.forecastToEndOfPeriod(
+            today = LocalDate.of(2026, 1, 3),
+            baseRate = 1L,
+            confirmedDates = emptySet(),
+            confirmedBalance = 0L,
+            accumulationStartDate = LocalDate.of(2026, 1, 1),
+            accumulationEndDate = LocalDate.of(2026, 1, 5)
+        )
+
+        assertEquals(12L, forecast)
+    }
+
+    @Test
+    fun forecastUsesFixedModeAndExcludesConfirmedFutureDates() {
+        val futureConfirmedDate = LocalDate.of(2026, 1, 11)
+
+        val forecast = calculator.forecastToEndOfPeriod(
+            today = LocalDate.of(2026, 1, 10),
+            baseRate = 10L,
+            confirmedDates = setOf(futureConfirmedDate),
+            confirmedBalance = 10L,
+            amountMode = SavingsAmountMode.FIXED,
+            accumulationStartDate = LocalDate.of(2026, 1, 1),
+            accumulationEndDate = LocalDate.of(2026, 1, 12)
+        )
+
+        assertEquals(30L, forecast)
     }
 }
