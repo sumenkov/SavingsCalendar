@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ru.sumenkov.savingscalendar.domain.calendarRangeAround
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.LocalDate
 import java.time.YearMonth
@@ -53,10 +55,9 @@ fun CalendarScreen(
     val accumulationEndDate = state.settings.accumulationEndDate(yearMonth.year)
     val firstDayOffset = yearMonth.atDay(1).dayOfWeek.value - 1
     val days = List(firstDayOffset) { null } + (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
-    val minYearMonth = YearMonth.from(state.today.minusYears(1))
-    val maxYearMonth = YearMonth.from(state.today.plusYears(1))
-    val canGoPrevious = yearMonth.isAfter(minYearMonth)
-    val canGoNext = yearMonth.isBefore(maxYearMonth)
+    val calendarRange = calendarRangeAround(state.today)
+    val canGoPrevious = calendarRange.canGoPrevious(yearMonth)
+    val canGoNext = calendarRange.canGoNext(yearMonth)
 
     Column(
         modifier = modifier
@@ -250,7 +251,11 @@ private fun DayDetailsCard(
             if (confirmed) {
                 Button(
                     onClick = onDelete,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
                 ) {
                     Text("Отменить взнос")
                 }
