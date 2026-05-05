@@ -17,6 +17,7 @@ import ru.sumenkov.savingscalendar.MainActivity
 import ru.sumenkov.savingscalendar.R
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
 import ru.sumenkov.savingscalendar.domain.SavingsCalculator
+import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import java.time.LocalDate
 
 class DailyReminderReceiver : BroadcastReceiver() {
@@ -38,6 +39,7 @@ class DailyReminderReceiver : BroadcastReceiver() {
                 }
 
                 val calculator = SavingsCalculator()
+                val strings = SavingsStrings.from(settings.language)
                 val startDate = settings.accumulationStartDate(today.year)
                 val dayNumberInPeriod = calculator.dayNumberInPeriod(today, startDate)
                 val amount = calculator.amountForDate(
@@ -56,8 +58,8 @@ class DailyReminderReceiver : BroadcastReceiver() {
 
                 val notification = NotificationCompat.Builder(context, NotificationChannels.DAILY_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notification_small)
-                    .setContentTitle("Сегодня день периода №$dayNumberInPeriod")
-                    .setContentText("Внесите $amount ${settings.currencySymbol} в накопления.")
+                    .setContentTitle(strings.dailyNotificationTitle(dayNumberInPeriod))
+                    .setContentText(strings.dailyNotification(amount, settings.currencySymbol))
                     .setContentIntent(openIntent)
                     .setAutoCancel(true)
                     .build()

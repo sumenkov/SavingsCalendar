@@ -2,21 +2,26 @@ package ru.sumenkov.savingscalendar.ui.screen
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,17 +33,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import ru.sumenkov.savingscalendar.data.settings.AppLanguage
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.ui.NotificationPermissionUiState
+import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
 fun SettingsScreen(
     state: SavingsUiState,
+    strings: SavingsStrings,
     notificationPermissionState: NotificationPermissionUiState,
     onBaseRateChange: (Long) -> Unit,
     onRemindersEnabledChange: (Boolean) -> Unit,
@@ -50,6 +57,7 @@ fun SettingsScreen(
     onAccumulationStartDateChange: (LocalDate) -> Unit,
     onAccumulationEndDateChange: (LocalDate) -> Unit,
     onAmountModeChange: (SavingsAmountMode) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -58,6 +66,7 @@ fun SettingsScreen(
     var currencyText by remember(state.settings.currencySymbol) {
         mutableStateOf(state.settings.currencySymbol)
     }
+    var showHelp by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -67,18 +76,26 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Настройки",
+            text = strings.settingsTitle,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
+        )
+
+        HelpCard(strings = strings, onOpen = { showHelp = true })
+
+        LanguageCard(
+            state = state,
+            strings = strings,
+            onLanguageChange = onLanguageChange
         )
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     text = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
-                        "Ровная сумма"
+                        strings.fixedAmountTitle
                     } else {
-                        "Базовая ставка"
+                        strings.baseRateTitle
                     },
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -91,9 +108,9 @@ fun SettingsScreen(
                     label = {
                         Text(
                             if (state.settings.amountMode == SavingsAmountMode.FIXED) {
-                                "Сумма в день, ${state.settings.currencySymbol}"
+                                "${strings.dailyAmountLabel}, ${state.settings.currencySymbol}"
                             } else {
-                                "Ставка, ${state.settings.currencySymbol}"
+                                "${strings.rateLabel}, ${state.settings.currencySymbol}"
                             }
                         )
                     },
@@ -109,20 +126,20 @@ fun SettingsScreen(
                             onCurrencySymbolChange(currencyText)
                         }
                     },
-                    label = { Text("Символ валюты") },
+                    label = { Text(strings.currencySymbol) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Изменение влияет только на будущие отметки.")
+                Text(strings.settingsAffectFuture)
             }
         }
 
         SettingSwitch(
-            title = "Ровные суммы",
+            title = strings.fixedAmounts,
             subtitle = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
-                "Каждый день откладывается одна и та же сумма."
+                strings.fixedAmountsSubtitle
             } else {
-                "Сумма растёт по формуле: день года × базовая ставка."
+                strings.growthAmountsSubtitle
             },
             checked = state.settings.amountMode == SavingsAmountMode.FIXED,
             onCheckedChange = { fixed ->
@@ -134,56 +151,147 @@ fun SettingsScreen(
 
         AccumulationPeriodCard(
             state = state,
+            strings = strings,
             onStartDateChange = onAccumulationStartDateChange,
             onEndDateChange = onAccumulationEndDateChange
         )
 
         PermissionCard(
             state = notificationPermissionState,
+            strings = strings,
             onRequestNotificationPermission = onRequestNotificationPermission,
             onOpenExactAlarmSettings = onOpenExactAlarmSettings
         )
 
         SettingSwitch(
-            title = "Ежедневные напоминания",
-            subtitle = "${state.settings.reminderHour.toString().padStart(2, '0')}:${state.settings.reminderMinute.toString().padStart(2, '0')}",
+            title = strings.dailyReminders,
+            subtitle = formatTime(state.settings.reminderHour, state.settings.reminderMinute),
             checked = state.settings.remindersEnabled,
             onCheckedChange = onRemindersEnabledChange
         )
 
         TimeSettingCard(
-            title = "Время ежедневного напоминания",
+            title = strings.dailyReminderTime,
             hour = state.settings.reminderHour,
             minute = state.settings.reminderMinute,
+            strings = strings,
             onTimeChange = onReminderTimeChange
         )
 
         SettingSwitch(
-            title = "Месячные отчёты",
-            subtitle = "Последний день месяца, ${state.settings.monthlyReportHour.toString().padStart(2, '0')}:${state.settings.monthlyReportMinute.toString().padStart(2, '0')}",
+            title = strings.monthlyReports,
+            subtitle = formatTime(state.settings.monthlyReportHour, state.settings.monthlyReportMinute),
             checked = state.settings.monthlyReportsEnabled,
             onCheckedChange = onMonthlyReportsEnabledChange
         )
 
         TimeSettingCard(
-            title = "Время месячного отчёта",
+            title = strings.monthlyReportTime,
             hour = state.settings.monthlyReportHour,
             minute = state.settings.monthlyReportMinute,
+            strings = strings,
             onTimeChange = onMonthlyReportTimeChange
         )
 
         SettingSwitch(
-            title = "Разрешить отметки прошлых дней",
-            subtitle = "Пропущенные дни можно отметить вручную, но прогноз их не догоняет автоматически.",
+            title = strings.allowPastDays,
+            subtitle = strings.allowPastDaysSubtitle,
             checked = state.settings.allowPastDays,
             onCheckedChange = onAllowPastDaysChange
         )
+    }
+
+    if (showHelp) {
+        SavingsHelpDialog(strings = strings, onDismiss = { showHelp = false })
+    }
+}
+
+@Composable
+private fun HelpCard(strings: SavingsStrings, onOpen: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(strings.helpTitle, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    strings.helpSubtitle,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Button(onClick = onOpen) {
+                Text(strings.open)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageCard(
+    state: SavingsUiState,
+    strings: SavingsStrings,
+    onLanguageChange: (AppLanguage) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(strings.languageTitle, style = MaterialTheme.typography.titleMedium)
+            Text(strings.languageSubtitle, style = MaterialTheme.typography.bodyMedium)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppLanguage.entries.forEach { language ->
+                    Button(
+                        onClick = { onLanguageChange(language) },
+                        enabled = state.settings.language != language,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(strings.languageOption(language))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavingsHelpDialog(strings: SavingsStrings, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(strings.helpDialogTitle) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                strings.helpSections.forEach { (title, body) ->
+                    InstructionSection(title = title, body = body)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(strings.understood)
+            }
+        }
+    )
+}
+
+@Composable
+private fun InstructionSection(title: String, body: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(body, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
 private fun AccumulationPeriodCard(
     state: SavingsUiState,
+    strings: SavingsStrings,
     onStartDateChange: (LocalDate) -> Unit,
     onEndDateChange: (LocalDate) -> Unit
 ) {
@@ -193,19 +301,21 @@ private fun AccumulationPeriodCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Период накоплений", style = MaterialTheme.typography.titleMedium)
+            Text(strings.accumulationPeriod, style = MaterialTheme.typography.titleMedium)
             DateSettingRow(
-                title = "Начало",
+                title = strings.start,
                 date = state.settings.accumulationStartDate(year),
                 minDate = minDate,
                 maxDate = maxDate,
+                strings = strings,
                 onDateChange = onStartDateChange
             )
             DateSettingRow(
-                title = "Конец",
+                title = strings.end,
                 date = state.settings.accumulationEndDate(year),
                 minDate = minDate,
                 maxDate = maxDate,
+                strings = strings,
                 onDateChange = onEndDateChange
             )
         }
@@ -218,10 +328,10 @@ private fun DateSettingRow(
     date: LocalDate,
     minDate: LocalDate,
     maxDate: LocalDate,
+    strings: SavingsStrings,
     onDateChange: (LocalDate) -> Unit
 ) {
-    val context = LocalContext.current
-    val formatter = remember { DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")) }
+    val context = LocalContext.current.withLocale(strings.locale)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -230,7 +340,7 @@ private fun DateSettingRow(
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(date.format(formatter), style = MaterialTheme.typography.bodyMedium)
+            Text(strings.fullDate(date), style = MaterialTheme.typography.bodyMedium)
         }
         Button(
             onClick = {
@@ -248,7 +358,7 @@ private fun DateSettingRow(
                 }.show()
             }
         ) {
-            Text("Выбрать")
+            Text(strings.select)
         }
     }
 }
@@ -256,6 +366,7 @@ private fun DateSettingRow(
 @Composable
 private fun PermissionCard(
     state: NotificationPermissionUiState,
+    strings: SavingsStrings,
     onRequestNotificationPermission: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit
 ) {
@@ -263,22 +374,22 @@ private fun PermissionCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Разрешения уведомлений", style = MaterialTheme.typography.titleMedium)
+            Text(strings.notificationPermissions, style = MaterialTheme.typography.titleMedium)
 
             if (!state.notificationsGranted) {
-                Text("Уведомления выключены. Без разрешения напоминания и месячные отчёты не будут показаны.")
+                Text(strings.notificationsDisabled)
                 if (state.canRequestNotifications) {
                     Button(onClick = onRequestNotificationPermission) {
-                        Text("Разрешить уведомления")
+                        Text(strings.allowNotifications)
                     }
                 }
             }
 
             if (!state.exactAlarmsGranted) {
-                Text("Точные будильники выключены. Напоминания могут приходить не строго в заданное время.")
+                Text(strings.exactAlarmsDisabled)
                 if (state.canRequestExactAlarms) {
                     Button(onClick = onOpenExactAlarmSettings) {
-                        Text("Открыть настройки будильников")
+                        Text(strings.openAlarmSettings)
                     }
                 }
             }
@@ -291,9 +402,10 @@ private fun TimeSettingCard(
     title: String,
     hour: Int,
     minute: Int,
+    strings: SavingsStrings,
     onTimeChange: (Int, Int) -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalContext.current.withLocale(strings.locale)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -320,7 +432,7 @@ private fun TimeSettingCard(
                     ).show()
                 }
             ) {
-                Text("Изменить")
+                Text(strings.change)
             }
         }
     }
@@ -356,4 +468,10 @@ private fun formatTime(hour: Int, minute: Int): String {
 
 private fun LocalDate.toPickerMillis(): Long {
     return atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+}
+
+private fun Context.withLocale(locale: Locale): Context {
+    val configuration = Configuration(resources.configuration)
+    configuration.setLocale(locale)
+    return createConfigurationContext(configuration)
 }

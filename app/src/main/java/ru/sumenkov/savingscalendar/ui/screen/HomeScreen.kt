@@ -25,14 +25,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ru.sumenkov.savingscalendar.R
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
+import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun HomeScreen(
     state: SavingsUiState,
+    strings: SavingsStrings,
     onConfirmToday: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -49,25 +48,29 @@ fun HomeScreen(
             ) {
                 Image(
                     painter = painterResource(R.drawable.app_logo),
-                    contentDescription = "Логотип приложения",
+                    contentDescription = strings.appLogoContentDescription,
                     modifier = Modifier.size(56.dp)
                 )
                 Text(
-                    text = "Календарь накоплений",
+                    text = strings.appName,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
 
-        item { TodayCard(state = state, onConfirmToday = onConfirmToday) }
-        item { TotalsCard(state = state) }
-        item { MonthlyReportCard(state = state) }
+        item { TodayCard(state = state, strings = strings, onConfirmToday = onConfirmToday) }
+        item { TotalsCard(state = state, strings = strings) }
+        item { MonthlyReportCard(state = state, strings = strings) }
     }
 }
 
 @Composable
-private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
+private fun TodayCard(
+    state: SavingsUiState,
+    strings: SavingsStrings,
+    onConfirmToday: () -> Unit
+) {
     val todayInPeriod = state.settings.isDateInAccumulationPeriod(state.today)
 
     Card(
@@ -76,19 +79,19 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = state.today.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))),
+                text = strings.fullDate(state.today),
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = state.todayDayNumberInPeriod?.let { "День периода №$it" }
-                    ?: "Сегодня вне периода",
+                text = state.todayDayNumberInPeriod?.let(strings::dayPeriod)
+                    ?: strings.todayOutsidePeriod,
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
                 text = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
-                    "Режим: ровная сумма"
+                    strings.fixedAmountMode
                 } else {
-                    "Режим: рост по дню года"
+                    strings.growthAmountMode
                 },
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -105,9 +108,9 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
             ) {
                 Text(
                     when {
-                        state.todayConfirmed -> "Взнос за сегодня внесён"
-                        !todayInPeriod -> "Сегодня вне периода"
-                        else -> "Внести взнос"
+                        state.todayConfirmed -> strings.todayContributionConfirmed
+                        !todayInPeriod -> strings.todayOutsidePeriod
+                        else -> strings.makeContribution
                     }
                 )
             }
@@ -116,44 +119,43 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
 }
 
 @Composable
-private fun TotalsCard(state: SavingsUiState) {
-    val formatter = DateTimeFormatter.ofPattern("d MMMM", Locale("ru"))
-    val periodStart = state.settings.accumulationStartDate(state.today.year).format(formatter)
-    val periodEnd = state.settings.accumulationEndDate(state.today.year).format(formatter)
+private fun TotalsCard(state: SavingsUiState, strings: SavingsStrings) {
+    val periodStart = strings.periodDate(state.settings.accumulationStartDate(state.today.year))
+    val periodEnd = strings.periodDate(state.settings.accumulationEndDate(state.today.year))
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Текущий баланс", style = MaterialTheme.typography.titleMedium)
+            Text(strings.currentBalance, style = MaterialTheme.typography.titleMedium)
             Text(
                 text = "${state.yearTotal} ${state.settings.currencySymbol}",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(4.dp))
-            Text("План до конца периода")
+            Text(strings.planToPeriodEnd)
             Text(
                 text = "${state.forecastToEndOfPeriod} ${state.settings.currencySymbol}",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.secondary,
                 fontWeight = FontWeight.SemiBold
             )
-            Text("Период: $periodStart - $periodEnd")
+            Text(strings.period(periodStart, periodEnd))
         }
     }
 }
 
 @Composable
-private fun MonthlyReportCard(state: SavingsUiState) {
+private fun MonthlyReportCard(state: SavingsUiState, strings: SavingsStrings) {
     val report = state.monthlyReport ?: return
-    val monthName = report.yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
+    val monthName = strings.monthName(report.yearMonth)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Итоги месяца: $monthName", style = MaterialTheme.typography.titleMedium)
-            ReportLine("За месяц", "${report.monthTotal} ${state.settings.currencySymbol}")
-            ReportLine("С начала года", "${report.yearTotal} ${state.settings.currencySymbol}")
-            ReportLine("Отмечено дней", "${report.completedDaysInMonth} из ${report.daysInMonth}")
-            ReportLine("Прогресс месяца", "${report.completionPercent}%")
+            Text("${strings.monthlyReportPrefix}: $monthName", style = MaterialTheme.typography.titleMedium)
+            ReportLine(strings.monthTotal, "${report.monthTotal} ${state.settings.currencySymbol}")
+            ReportLine(strings.sinceYearStart, "${report.yearTotal} ${state.settings.currencySymbol}")
+            ReportLine(strings.completedDays, strings.daysOf(report.completedDaysInMonth, report.daysInMonth))
+            ReportLine(strings.monthProgress, "${report.completionPercent}%")
         }
     }
 }

@@ -30,15 +30,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun CalendarScreen(
     state: SavingsUiState,
+    strings: SavingsStrings,
     onConfirmDate: (LocalDate) -> Unit,
     onDeleteDate: (LocalDate) -> Unit,
     amountForDate: (LocalDate) -> Long,
@@ -74,11 +74,10 @@ fun CalendarScreen(
                 },
                 enabled = canGoPrevious
             ) {
-                Text("Назад")
+                Text(strings.previous)
             }
             Text(
-                text = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
-                    .replaceFirstChar { it.uppercase() } + " ${yearMonth.year}",
+                text = strings.monthTitle(yearMonth),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -89,17 +88,17 @@ fun CalendarScreen(
                 },
                 enabled = canGoNext
             ) {
-                Text("Вперёд")
+                Text(strings.next)
             }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LegendDot("✓", "Взнос внесён")
-            LegendDot("!", "Пропущено")
-            LegendDot("•", "Сегодня")
+            LegendDot("✓", strings.contributionDone)
+            LegendDot("!", strings.missed)
+            LegendDot("•", strings.today)
         }
 
-        WeekHeader()
+        WeekHeader(strings = strings)
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
@@ -129,6 +128,7 @@ fun CalendarScreen(
             val entry = state.entries.firstOrNull { it.date == date }
             val inSavingsPeriod = state.settings.isDateInAccumulationPeriod(date)
             DayDetailsCard(
+                strings = strings,
                 date = date,
                 amount = entry?.amount ?: if (inSavingsPeriod) amountForDate(date) else 0L,
                 dayNumberInPeriod = dayNumberForDate(date),
@@ -148,6 +148,7 @@ fun CalendarScreen(
     dateToDelete?.let { date ->
         val entry = state.entries.firstOrNull { it.date == date }
         CancelContributionDialog(
+            strings = strings,
             date = date,
             amount = entry?.amount ?: amountForDate(date),
             currencySymbol = state.settings.currencySymbol,
@@ -161,12 +162,12 @@ fun CalendarScreen(
 }
 
 @Composable
-private fun WeekHeader() {
+private fun WeekHeader(strings: SavingsStrings) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach { label ->
+        strings.weekDays.forEach { label ->
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Text(
                     text = label,
@@ -222,6 +223,7 @@ private fun DayCell(
 
 @Composable
 private fun DayDetailsCard(
+    strings: SavingsStrings,
     date: LocalDate,
     amount: Long,
     dayNumberInPeriod: Int?,
@@ -233,30 +235,30 @@ private fun DayDetailsCard(
     onConfirm: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val dateText = date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+    val dateText = strings.fullDate(date)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dateText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 if (dayNumberInPeriod != null) {
-                    "День периода №$dayNumberInPeriod"
+                    strings.dayPeriod(dayNumberInPeriod)
                 } else {
-                    "День года №${date.dayOfYear}"
+                    strings.dayYear(date.dayOfYear)
                 }
             )
-            Text("Сумма: $amount $currencySymbol")
-            Text("Ставка: $baseRate $currencySymbol")
+            Text("${strings.amount}: $amount $currencySymbol")
+            Text("${strings.rate}: $baseRate $currencySymbol")
             if (!inSavingsPeriod) {
-                Text("День вне периода накоплений.")
+                Text(strings.outsideSavingsPeriod)
             }
-            Text(if (confirmed) "Статус: взнос внесён" else "Статус: не отмечено")
+            Text(if (confirmed) strings.statusConfirmed else strings.statusUnmarked)
             if (confirmed) {
                 Button(
                     onClick = onDelete,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Отменить взнос")
+                    Text(strings.cancelContribution)
                 }
             } else {
                 Button(
@@ -266,9 +268,9 @@ private fun DayDetailsCard(
                 ) {
                     Text(
                         when {
-                            canConfirm -> "Отметить день"
-                            !inSavingsPeriod -> "Вне периода накоплений"
-                            else -> "Нельзя отметить этот день"
+                            canConfirm -> strings.markDay
+                            !inSavingsPeriod -> strings.outsideSavingsPeriod
+                            else -> strings.cannotMarkDay
                         }
                     )
                 }
@@ -279,26 +281,27 @@ private fun DayDetailsCard(
 
 @Composable
 private fun CancelContributionDialog(
+    strings: SavingsStrings,
     date: LocalDate,
     amount: Long,
     currencySymbol: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    val dateText = date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+    val dateText = strings.fullDate(date)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Отменить взнос?") },
-        text = { Text("Отменить взнос за $dateText на сумму $amount $currencySymbol?") },
+        title = { Text(strings.cancelContributionQuestion()) },
+        text = { Text(strings.cancelContributionFor(dateText, amount, currencySymbol)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Отменить взнос")
+                Text(strings.cancelContribution)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Назад")
+                Text(strings.back)
             }
         }
     )
