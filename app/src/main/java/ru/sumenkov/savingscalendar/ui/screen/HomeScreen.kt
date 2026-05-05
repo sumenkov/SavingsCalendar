@@ -105,9 +105,9 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
             ) {
                 Text(
                     when {
-                        state.todayConfirmed -> "Взнос за сегодня внесён"
+                        state.todayConfirmed -> "Взнос за сегодня сделан"
                         !todayInPeriod -> "Сегодня вне периода"
-                        else -> "Внести взнос"
+                        else -> "Сделать взнос"
                     }
                 )
             }

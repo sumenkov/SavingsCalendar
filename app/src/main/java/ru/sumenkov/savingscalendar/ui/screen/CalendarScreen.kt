@@ -244,7 +244,7 @@ private fun DayDetailsCard(
             if (!inSavingsPeriod) {
                 Text("День вне периода накоплений.")
             }
-            Text(if (confirmed) "Статус: взнос внесён" else "Статус: не отмечено")
+            Text(if (confirmed) "Статус: взнос сделан" else "Статус: не отмечено")
             if (confirmed) {
                 Button(
                     onClick = onDelete,
