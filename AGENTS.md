@@ -1,136 +1,443 @@
 # AGENTS.md
 
-Проект: **Календарь накоплений**. Android-приложение для ежедневных накоплений по формуле `номер дня в году × базовая ставка`.
+## Project
 
-## Главные правила для Codex/агентов
+Project name: Savings Calendar / Календарь накоплений.
 
-1. Работать маленькими атомарными изменениями.
-2. Не смешивать UI, доменную логику, хранение и уведомления в одном классе.
-3. После каждого изменения проверять сборку или объяснять, почему сборка не запускалась.
-4. Для бизнес-логики обязательно добавлять или обновлять unit-тесты.
-5. Коммиты делать подробными: кратко описывать, какие файлы изменены и зачем.
-6. Не добавлять сетевую синхронизацию, регистрацию, банк/API или облако без отдельной задачи.
-7. Сохранять русский язык пользовательских текстов.
-8. Не пересчитывать прошлые подтверждённые взносы при изменении базовой ставки.
+Android application for daily savings tracking.
 
-## Роли агентов
+Core idea:
+- Every day of the year has a number.
+- Required daily contribution = dayOfYear * baseRate.
+- User confirms that the contribution was made.
+- App marks the day in calendar.
+- Balance includes only confirmed days.
+- Forecast includes already confirmed balance + future planned contributions from current date to the end of the year.
+- Missed past days are not automatically included in future forecast.
+- Monthly encouraging report is shown on the last day of each month.
 
-### Analyst
+Main stack:
+- Kotlin
+- Jetpack Compose
+- Material 3
+- Room
+- DataStore
+- AlarmManager / notification scaffolding
+- Gradle Kotlin DSL
 
-Отвечает за требования, сценарии и правила расчётов.
+---
 
-Задачи:
+## Main Goal For Agents
 
-- уточнять бизнес-правила;
-- описывать edge cases;
-- готовить acceptance criteria;
-- следить, чтобы прогноз не догонял пропущенные дни автоматически;
-- проверять, что отчёты показывают только фактически подтверждённые суммы.
+Help develop the project with minimal token waste.
 
-### Programmer
+Prefer:
+- small focused changes;
+- targeted file reading;
+- minimal diffs;
+- deterministic logic;
+- tests for business rules;
+- clear commit messages.
 
-Отвечает за код.
+Avoid:
+- large rewrites;
+- unnecessary architecture churn;
+- dependency upgrades without request;
+- reading the whole project when only 1-3 files are relevant;
+- pasting full files into chat unless explicitly requested.
 
-Задачи:
+---
 
-- реализовывать фичи через слои `domain`, `data`, `notification`, `ui`;
-- писать простой и читаемый Kotlin;
-- не тащить тяжёлые зависимости без причины;
-- поддерживать Compose UI в стиле Material 3;
-- не делать преждевременную архитектурную башню с хрустальными лестницами.
+## Token Economy Rules
 
-### Tester
+### 1. Read Less
 
-Отвечает за проверки.
+Before opening files, use targeted search.
 
-Задачи:
+Preferred commands:
 
-- писать unit-тесты для расчётов;
-- проверять високосный год;
-- проверять смену базовой ставки;
-- проверять пропущенные дни;
-- проверять последний день месяца;
-- фиксировать баги через воспроизводимые шаги.
-
-## Архитектурные границы
-
-```text
-ui -> viewmodel -> repository/settings/scheduler -> data/domain
+```bash
+rg "SavingsCalculator|Forecast|Reminder|DataStore|Room|Calendar" .
+find . -maxdepth 4 -type f | sort
 ```
 
-Разрешено:
+Do not dump entire directories.
 
-- UI вызывает ViewModel.
-- ViewModel вызывает Repository и domain-сервисы.
-- Repository работает с Room.
-- SettingsRepository работает с DataStore.
-- Notification scheduler работает с AlarmManager/NotificationManager.
+Do not read generated files, build outputs, or IDE files:
 
-Запрещено:
+```text
+.gradle/
+build/
+.idea/
+*.iml
+local.properties
+```
 
-- UI напрямую пишет в Room.
-- BroadcastReceiver содержит сложную бизнес-логику.
-- Расчёты сумм живут внутри Composable.
-- Даты считаются строками вместо `LocalDate`, кроме хранения через конвертеры.
+### 2. Edit Small
 
-## Правила расчёта
+Make the smallest change that solves the task.
 
-### Сумма дня
+Do not rewrite a file only to change formatting.
+
+Do not rename classes, packages, modules, or files unless the task requires it.
+
+### 3. Summarize Briefly
+
+When reporting work, use this format:
+
+```text
+Done:
+- Changed X to do Y.
+- Added/updated tests for Z.
+- Did not touch A/B/C.
+
+Checks:
+- ./gradlew testDebugUnitTest
+```
+
+No long explanations unless asked.
+
+### 4. Ask Only When Blocked
+
+Do not ask clarification questions for obvious implementation choices.
+
+Make reasonable local decisions and document them briefly.
+
+Ask only when:
+- business rule is ambiguous;
+- change may delete user data;
+- change affects architecture significantly;
+- dependency or platform choice is unclear.
+
+### 5. Prefer Local Context
+
+Use existing project style.
+
+Before adding a new pattern, check whether the project already has:
+- repository pattern;
+- ViewModel pattern;
+- UI state classes;
+- theme colors;
+- test naming style;
+- package naming convention.
+
+---
+
+## Business Rules
+
+### Daily Amount
 
 ```text
 amount = dayOfYear * baseRate
 ```
 
-### Баланс
+Examples:
+- day 1, baseRate 1 = 1
+- day 53, baseRate 1 = 53
+- day 53, baseRate 5 = 265
+
+### Balance
+
+Balance includes only confirmed entries.
 
 ```text
-balance = sum(confirmedEntries.amount)
+balance = sum(confirmedEntry.amount)
 ```
 
-### Прогноз
+Do not calculate balance from theoretical calendar days.
+
+### Forecast
+
+Forecast to the end of the year:
 
 ```text
-forecast = balance + sum(amountForDay(day) for day from today to endOfYear, excluding days already confirmed if needed)
+forecast = confirmedBalance + planned future contributions
 ```
 
-Пропущенные прошлые дни не входят в прогноз.
+Missed past days are not included.
 
-### Месячный отчёт
+Current day is included in future plan if it is not confirmed yet and the date has not passed.
+
+### Base Rate Changes
+
+Changing base rate affects only current and future calculations.
+
+Already confirmed entries keep their saved amount and saved baseRate.
+
+### Monthly Report
+
+On the last day of each month, show an encouraging report:
 
 ```text
-monthTotal = sum(confirmed entries in selected month)
-yearTotal = sum(confirmed entries in selected year)
-completedDays = count(confirmed entries in selected month)
+monthlyTotal = sum(confirmed entries in current month)
+yearTotal = sum(confirmed entries in current year)
+completedDaysInMonth = count(confirmed entries in current month)
 ```
 
-## Definition of Done
+The report must show facts at the time of report generation.
 
-Фича считается завершённой, если:
+If today's contribution is not confirmed yet, it is not included.
 
-- код компилируется;
-- бизнес-правила не размазаны по UI;
-- есть тесты для расчётов или явно написано, почему тест не нужен;
-- пользовательские тексты не на английском без причины;
-- README/заметки обновлены при изменении сценариев;
-- нет временных TODO без задачи.
+---
 
-## Формат коммита
+## Architecture Rules
+
+Keep business logic independent from Android framework when possible.
+
+Preferred structure:
 
 ```text
-feat: add monthly report calculation
+data/
+  db/
+  model/
+  repository/
+  settings/
+
+domain/
+  SavingsCalculator.kt
+  SavingsForecastService.kt
+  MonthlyReportService.kt
+
+notification/
+  DailyReminderScheduler.kt
+  MonthlyReportScheduler.kt
+  ReminderReceiver.kt
+
+ui/
+  screen/
+  component/
+  theme/
+```
+
+Business calculations should live in `domain/`.
+
+Android-specific APIs should not leak into pure calculator classes.
+
+---
+
+## Testing Rules
+
+Always add or update tests when changing:
+
+- daily amount calculation;
+- balance calculation;
+- forecast calculation;
+- missed day behavior;
+- base rate behavior;
+- monthly report calculation;
+- date handling;
+- leap year behavior.
+
+Preferred tests:
+- fast JVM unit tests;
+- deterministic dates;
+- no reliance on current system date inside tests.
+
+Use injected `LocalDate` or clock-like abstraction when needed.
+
+Minimum calculator test cases:
+
+```text
+amountForDay(1, 1) = 1
+amountForDay(53, 1) = 53
+amountForDay(53, 5) = 265
+
+fullYearPlan(365, 1) = 66795
+fullYearPlan(366, 1) = 67161
+
+confirmed balance ignores missed days
+forecast ignores missed past days
+confirmed entries keep old baseRate
+monthly report sums only selected month
+```
+
+---
+
+## Android Rules
+
+### Compose
+
+Prefer small composables.
+
+Avoid putting business logic directly inside composables.
+
+Use:
+- state hoisting;
+- ViewModel;
+- immutable UI state;
+- preview-friendly components where practical.
+
+### Room
+
+Do not change database schema without:
+- updating entity;
+- updating DAO;
+- adding migration or clearly documenting destructive migration for MVP;
+- updating tests where possible.
+
+### DataStore
+
+Use DataStore for simple settings:
+- base rate;
+- reminder enabled;
+- reminder time;
+- monthly report enabled;
+- monthly report time;
+- currency symbol.
+
+### Notifications
+
+Be careful with Android notification limitations.
+
+Daily reminders:
+- request notification permission on Android 13+;
+- handle missing exact alarm permission gracefully;
+- reschedule reminders when settings change;
+- do not crash if scheduling fails.
+
+Monthly reports:
+- schedule for last day of month;
+- reschedule next monthly report after firing;
+- use actual confirmed entries at report time.
+
+---
+
+## Dependency Rules
+
+Do not upgrade dependencies unless asked.
+
+Do not add new libraries for simple tasks.
+
+Before adding a dependency, explain briefly:
+- why existing tools are insufficient;
+- what the dependency solves;
+- expected cost.
+
+Prefer standard AndroidX libraries already used by the project.
+
+---
+
+## Commit Message Rules
+
+Use detailed commits.
+
+Format:
+
+```text
+type(scope): short summary
 
 Files:
-- SavingsCalculator.kt: added monthly/year totals helpers.
-- SavingsViewModel.kt: exposed monthly report state.
-- HomeScreen.kt: added monthly report card.
-- SavingsCalculatorTest.kt: covered month report edge cases.
+- path/File.kt: what changed
+- path/Other.kt: what changed
+
+Tests:
+- Added/updated test X
+- Ran command Y
 ```
 
-## Что не делать в MVP
+Examples:
 
-- Банковская интеграция.
-- Регистрация и аккаунты.
-- Облачная синхронизация.
-- Несколько копилок.
-- Сложная аналитика и графики.
-- Инвестиционный учёт.
+```text
+feat(domain): add monthly savings report calculation
+
+Files:
+- domain/MonthlyReportService.kt: added monthly and yearly totals
+- domain/MonthlyReportServiceTest.kt: covered month filtering and year totals
+
+Tests:
+- ./gradlew testDebugUnitTest
+```
+
+Allowed types:
+- feat
+- fix
+- refactor
+- test
+- docs
+- chore
+
+---
+
+## Work Modes
+
+### Analysis Mode
+
+Use when task is unclear or architectural.
+
+Output:
+- files likely affected;
+- minimal implementation plan;
+- risks;
+- tests to run.
+
+Keep it short.
+
+### Implementation Mode
+
+Use when task is clear.
+
+Steps:
+1. inspect only relevant files;
+2. patch minimal code;
+3. update/add tests;
+4. run targeted checks;
+5. summarize.
+
+### Review Mode
+
+Use when checking code.
+
+Look for:
+- broken business rules;
+- wrong date logic;
+- missed leap year cases;
+- Room migration issues;
+- notification permission issues;
+- excessive recomposition in Compose;
+- unnecessary dependencies;
+- oversized files.
+
+---
+
+## Forbidden Without Explicit Request
+
+Do not:
+- rewrite the whole app;
+- migrate to another architecture;
+- introduce backend/cloud sync;
+- add login;
+- add bank integration;
+- add analytics SDKs;
+- add ads;
+- change app name;
+- replace Compose with XML;
+- replace Room/DataStore without strong reason;
+- reformat the entire project.
+
+---
+
+## Final Response Style For Codex
+
+Be concise.
+
+Good final response:
+
+```text
+Done:
+- Added monthly report calculation.
+- Added tests for month and year totals.
+- Updated settings model with monthly report time.
+
+Checks:
+- ./gradlew testDebugUnitTest
+
+Notes:
+- Did not change notification scheduling yet.
+```
+
+Bad final response:
+- long essays;
+- full file dumps;
+- repeating code already changed;
+- explaining basic Kotlin syntax;
+- listing every command output line.

@@ -2,8 +2,6 @@ package ru.sumenkov.savingscalendar.ui.screen
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.Context
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,7 +38,6 @@ import ru.sumenkov.savingscalendar.ui.SavingsStrings
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -82,12 +79,6 @@ fun SettingsScreen(
         )
 
         HelpCard(strings = strings, onOpen = { showHelp = true })
-
-        LanguageCard(
-            state = state,
-            strings = strings,
-            onLanguageChange = onLanguageChange
-        )
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -198,6 +189,12 @@ fun SettingsScreen(
             subtitle = strings.allowPastDaysSubtitle,
             checked = state.settings.allowPastDays,
             onCheckedChange = onAllowPastDaysChange
+        )
+
+        LanguageCard(
+            state = state,
+            strings = strings,
+            onLanguageChange = onLanguageChange
         )
     }
 
@@ -331,7 +328,7 @@ private fun DateSettingRow(
     strings: SavingsStrings,
     onDateChange: (LocalDate) -> Unit
 ) {
-    val context = LocalContext.current.withLocale(strings.locale)
+    val context = LocalContext.current
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -405,7 +402,7 @@ private fun TimeSettingCard(
     strings: SavingsStrings,
     onTimeChange: (Int, Int) -> Unit
 ) {
-    val context = LocalContext.current.withLocale(strings.locale)
+    val context = LocalContext.current
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -468,10 +465,4 @@ private fun formatTime(hour: Int, minute: Int): String {
 
 private fun LocalDate.toPickerMillis(): Long {
     return atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-}
-
-private fun Context.withLocale(locale: Locale): Context {
-    val configuration = Configuration(resources.configuration)
-    configuration.setLocale(locale)
-    return createConfigurationContext(configuration)
 }
