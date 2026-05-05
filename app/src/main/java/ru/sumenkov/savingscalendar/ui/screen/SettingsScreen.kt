@@ -262,8 +262,8 @@ private fun AccumulationPeriodCard(
     onEndDateChange: (LocalDate) -> Unit
 ) {
     val year = state.today.year
-    val minDate = LocalDate.of(year, 1, 1)
-    val maxDate = LocalDate.of(year, 12, 31)
+    val minDate = state.today.minusYears(1)
+    val maxDate = state.today.plusYears(1)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
