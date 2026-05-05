@@ -53,8 +53,10 @@ fun CalendarScreen(
     val accumulationEndDate = state.settings.accumulationEndDate(yearMonth.year)
     val firstDayOffset = yearMonth.atDay(1).dayOfWeek.value - 1
     val days = List(firstDayOffset) { null } + (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
-    val canGoPrevious = yearMonth.monthValue > 1
-    val canGoNext = yearMonth.monthValue < 12
+    val minYearMonth = YearMonth.from(state.today.minusYears(1))
+    val maxYearMonth = YearMonth.from(state.today.plusYears(1))
+    val canGoPrevious = yearMonth.isAfter(minYearMonth)
+    val canGoNext = yearMonth.isBefore(maxYearMonth)
 
     Column(
         modifier = modifier

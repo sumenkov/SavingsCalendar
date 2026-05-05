@@ -153,11 +153,12 @@ class SavingsViewModel(
     private fun observeState() {
         viewModelScope.launch {
             combine(
-                savingsRepository.observeByYear(LocalDate.now().year),
+                savingsRepository.observeAll(),
                 settingsRepository.settings
             ) { entries, settings ->
                 val today = LocalDate.now()
-                val periodEntries = entries.filter { settings.isDateInAccumulationPeriod(it.date) }
+                val currentYearEntries = entries.filter { it.date.year == today.year }
+                val periodEntries = currentYearEntries.filter { settings.isDateInAccumulationPeriod(it.date) }
                 val periodTotal = periodEntries.sumOf { it.amount }
                 val todayDayNumberInPeriod = if (settings.isDateInAccumulationPeriod(today)) {
                     calculator.dayNumberInPeriod(
@@ -184,6 +185,7 @@ class SavingsViewModel(
                     todayDayNumberInPeriod = todayDayNumberInPeriod,
                     todayConfirmed = todayConfirmed,
                     yearTotal = periodTotal,
+                    historyTotal = entries.sumOf { it.amount },
                     forecastToEndOfPeriod = calculator.forecastToEndOfPeriod(
                         today = today,
                         baseRate = settings.baseRate,
@@ -233,7 +235,7 @@ class SavingsViewModel(
         today: LocalDate,
         settings: AppSettings
     ): Boolean {
-        if (date.year != today.year) return false
+        if (date.isBefore(today.minusYears(1)) || date.isAfter(today.plusYears(1))) return false
         if (!settings.isDateInAccumulationPeriod(date)) return false
 
         return !date.isBefore(today) || settings.allowPastDays

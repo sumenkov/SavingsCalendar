@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import ru.sumenkov.savingscalendar.data.db.SavingsEntry
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -34,6 +35,12 @@ fun HistoryScreen(
     modifier: Modifier = Modifier
 ) {
     var entryToDelete by remember { mutableStateOf<SavingsEntry?>(null) }
+    val groupedEntries = remember(state.entries) {
+        state.entries
+            .groupBy { YearMonth.from(it.date) }
+            .toList()
+            .sortedByDescending { it.first }
+    }
 
     Column(
         modifier = modifier
@@ -42,7 +49,7 @@ fun HistoryScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "История: ${state.yearTotal} ${state.settings.currencySymbol}",
+            text = "История: ${state.historyTotal} ${state.settings.currencySymbol}",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
@@ -51,12 +58,21 @@ fun HistoryScreen(
             Text("Пока нет подтверждённых взносов. Первая монетка ещё ждёт своего часа.")
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.entries) { entry ->
-                    HistoryEntryCard(
-                        entry = entry,
-                        currencySymbol = state.settings.currencySymbol,
-                        onDelete = { entryToDelete = entry }
-                    )
+                groupedEntries.forEach { (month, entries) ->
+                    item {
+                        MonthHeader(
+                            month = month,
+                            total = entries.sumOf { it.amount },
+                            currencySymbol = state.settings.currencySymbol
+                        )
+                    }
+                    items(entries) { entry ->
+                        HistoryEntryCard(
+                            entry = entry,
+                            currencySymbol = state.settings.currencySymbol,
+                            onDelete = { entryToDelete = entry }
+                        )
+                    }
                 }
             }
         }
@@ -74,6 +90,22 @@ fun HistoryScreen(
             }
         )
     }
+}
+
+@Composable
+private fun MonthHeader(
+    month: YearMonth,
+    total: Long,
+    currencySymbol: String
+) {
+    val title = month.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru")))
+        .replaceFirstChar { it.uppercase() }
+
+    Text(
+        text = "$title: $total $currencySymbol",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 @Composable

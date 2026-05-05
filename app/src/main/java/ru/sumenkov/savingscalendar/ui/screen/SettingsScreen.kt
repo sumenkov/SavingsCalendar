@@ -2,6 +2,7 @@
 
 package ru.sumenkov.savingscalendar.ui.screen
 
+import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,9 +25,7 @@ import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -415,7 +415,7 @@ private fun TimeSettingCard(
     minute: Int,
     onTimeChange: (Int, Int) -> Unit
 ) {
-    var showTimePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -429,62 +429,23 @@ private fun TimeSettingCard(
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(formatTime(hour, minute), style = MaterialTheme.typography.bodyMedium)
             }
-            Button(onClick = { showTimePicker = true }) {
-                Text("Изменить")
-            }
-        }
-    }
-
-    if (showTimePicker) {
-        SavingsTimePickerDialog(
-            title = title,
-            hour = hour,
-            minute = minute,
-            onDismiss = { showTimePicker = false },
-            onTimeChange = onTimeChange
-        )
-    }
-}
-
-@Composable
-private fun SavingsTimePickerDialog(
-    title: String,
-    hour: Int,
-    minute: Int,
-    onDismiss: () -> Unit,
-    onTimeChange: (Int, Int) -> Unit
-) {
-    val timePickerState = rememberTimePickerState(
-        initialHour = hour.coerceIn(0, 23),
-        initialMinute = minute.coerceIn(0, 59),
-        is24Hour = true
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            TimeInput(
-                state = timePickerState,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
-                    onTimeChange(timePickerState.hour, timePickerState.minute)
-                    onDismiss()
+                    TimePickerDialog(
+                        context,
+                        { _, selectedHour, selectedMinute ->
+                            onTimeChange(selectedHour, selectedMinute)
+                        },
+                        hour,
+                        minute,
+                        true
+                    ).show()
                 }
             ) {
                 Text("Изменить")
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Назад")
-            }
         }
-    )
+    }
 }
 
 @Composable
