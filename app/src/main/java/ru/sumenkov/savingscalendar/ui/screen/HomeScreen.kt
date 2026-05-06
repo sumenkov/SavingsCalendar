@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import ru.sumenkov.savingscalendar.R
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -69,6 +70,7 @@ fun HomeScreen(
 @Composable
 private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
     val todayInPeriod = state.settings.isDateInAccumulationPeriod(state.today)
+    val periodStatus = periodStatusText(state.today, state.settings.accumulationStartDate(), state.settings.accumulationEndDate())
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -80,24 +82,33 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = state.todayDayNumberInPeriod?.let { "День периода №$it" }
-                    ?: "Сегодня вне периода",
+                text = state.todayDayNumberInPeriod?.let { "День периода №$it" } ?: "Сегодня вне периода",
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
                 text = if (state.settings.amountMode == SavingsAmountMode.FIXED) {
                     "Режим: ровная сумма"
                 } else {
-                    "Режим: рост по дню года"
+                    "Режим: рост по дню периода"
                 },
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = "${state.todayAmount} ${state.settings.currencySymbol}",
+                text = if (todayInPeriod) {
+                    "${state.todayAmount} ${state.settings.currencySymbol}"
+                } else {
+                    "Взнос не нужен"
+                },
                 style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
+            if (!todayInPeriod) {
+                Text(
+                    text = periodStatus,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             Button(
                 onClick = onConfirmToday,
                 enabled = !state.todayConfirmed && todayInPeriod,
@@ -105,8 +116,8 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
             ) {
                 Text(
                     when {
-                        state.todayConfirmed -> "Взнос за сегодня сделан"
                         !todayInPeriod -> "Сегодня вне периода"
+                        state.todayConfirmed -> "Взнос за сегодня сделан"
                         else -> "Сделать взнос"
                     }
                 )
@@ -123,14 +134,14 @@ private fun TotalsCard(state: SavingsUiState) {
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Текущий баланс", style = MaterialTheme.typography.titleMedium)
+            Text("Баланс периода", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "${state.yearTotal} ${state.settings.currencySymbol}",
+                text = "${state.periodTotal} ${state.settings.currencySymbol}",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(4.dp))
-            Text("План до конца периода")
+            Text("Прогноз до конца периода")
             Text(
                 text = "${state.forecastToEndOfPeriod} ${state.settings.currencySymbol}",
                 style = MaterialTheme.typography.titleLarge,
@@ -150,11 +161,25 @@ private fun MonthlyReportCard(state: SavingsUiState) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Итоги месяца: $monthName", style = MaterialTheme.typography.titleMedium)
+            if (report.plannedDaysInMonth == 0) {
+                Text("В этом месяце нет дней выбранного периода.")
+                ReportLine("За период", "${report.periodTotal} ${state.settings.currencySymbol}")
+                return@Column
+            }
             ReportLine("За месяц", "${report.monthTotal} ${state.settings.currencySymbol}")
-            ReportLine("С начала года", "${report.yearTotal} ${state.settings.currencySymbol}")
-            ReportLine("Отмечено дней", "${report.completedDaysInMonth} из ${report.daysInMonth}")
-            ReportLine("Прогресс месяца", "${report.completionPercent}%")
+            ReportLine("За период", "${report.periodTotal} ${state.settings.currencySymbol}")
+            ReportLine("Отмечено дней периода", "${report.completedDaysInMonth} из ${report.plannedDaysInMonth}")
+            ReportLine("Прогресс месяца в периоде", "${report.completionPercent}%")
         }
+    }
+}
+
+private fun periodStatusText(today: LocalDate, startDate: LocalDate, endDate: LocalDate): String {
+    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))
+    return when {
+        today.isBefore(startDate) -> "Период начнётся ${startDate.format(formatter)}"
+        today.isAfter(endDate) -> "Период завершён ${endDate.format(formatter)}"
+        else -> "Сегодня вне периода"
     }
 }
 

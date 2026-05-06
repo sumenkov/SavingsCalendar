@@ -9,6 +9,7 @@ import ru.sumenkov.savingscalendar.domain.SavingsCalculator
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 
 class SavingsRepository(
     private val dao: SavingsDao,
@@ -53,17 +54,31 @@ class SavingsRepository(
         }
     }
 
-    suspend fun monthlyReport(yearMonth: YearMonth): MonthlyReport {
-        val from = yearMonth.atDay(1)
-        val to = yearMonth.atEndOfMonth()
-        val yearFrom = LocalDate.of(yearMonth.year, 1, 1)
-        val yearTo = LocalDate.of(yearMonth.year, 12, 31)
+    suspend fun monthlyReport(
+        yearMonth: YearMonth,
+        accumulationStartDate: LocalDate,
+        accumulationEndDate: LocalDate
+    ): MonthlyReport {
+        require(!accumulationEndDate.isBefore(accumulationStartDate)) {
+            "accumulationEndDate must be on or after accumulationStartDate"
+        }
+
+        val monthStart = yearMonth.atDay(1)
+        val monthEnd = yearMonth.atEndOfMonth()
+        val reportStart = maxOf(monthStart, accumulationStartDate)
+        val reportEnd = minOf(monthEnd, accumulationEndDate)
+        val monthIntersectsPeriod = !reportEnd.isBefore(reportStart)
+
         return MonthlyReport(
             yearMonth = yearMonth,
-            monthTotal = dao.sumBetween(from, to),
-            yearTotal = dao.sumBetween(yearFrom, yearTo),
-            completedDaysInMonth = dao.countBetween(from, to),
-            daysInMonth = yearMonth.lengthOfMonth()
+            monthTotal = if (monthIntersectsPeriod) dao.sumBetween(reportStart, reportEnd) else 0L,
+            periodTotal = dao.sumBetween(accumulationStartDate, accumulationEndDate),
+            completedDaysInMonth = if (monthIntersectsPeriod) dao.countBetween(reportStart, reportEnd) else 0,
+            plannedDaysInMonth = if (monthIntersectsPeriod) {
+                ChronoUnit.DAYS.between(reportStart, reportEnd).toInt() + 1
+            } else {
+                0
+            }
         )
     }
 }

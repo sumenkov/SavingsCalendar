@@ -13,8 +13,26 @@ data class CalendarRange(
 }
 
 fun calendarRangeAround(today: LocalDate): CalendarRange {
+    return calendarRangeForPeriod(
+        today = today,
+        accumulationStartDate = today.minusYears(1),
+        accumulationEndDate = today.plusYears(1)
+    )
+}
+
+fun calendarRangeForPeriod(
+    today: LocalDate,
+    accumulationStartDate: LocalDate,
+    accumulationEndDate: LocalDate
+): CalendarRange {
     return CalendarRange(
-        minMonth = YearMonth.from(today.minusYears(1)),
-        maxMonth = YearMonth.from(today.plusYears(1))
+        minMonth = minOf(
+            YearMonth.from(today.minusYears(1)),
+            YearMonth.from(accumulationStartDate)
+        ),
+        maxMonth = maxOf(
+            YearMonth.from(today.plusYears(1)),
+            YearMonth.from(accumulationEndDate)
+        )
     )
 }

@@ -31,4 +31,16 @@ class CalendarRangeTest {
         assertTrue(range.canGoNext(YearMonth.of(2027, 4)))
         assertFalse(range.canGoNext(YearMonth.of(2027, 5)))
     }
+
+    @Test
+    fun rangeIncludesSelectedAccumulationPeriodWhenItIsWiderThanDefaultWindow() {
+        val range = calendarRangeForPeriod(
+            today = LocalDate.of(2026, 5, 5),
+            accumulationStartDate = LocalDate.of(2024, 12, 31),
+            accumulationEndDate = LocalDate.of(2028, 1, 1)
+        )
+
+        assertEquals(YearMonth.of(2024, 12), range.minMonth)
+        assertEquals(YearMonth.of(2028, 1), range.maxMonth)
+    }
 }

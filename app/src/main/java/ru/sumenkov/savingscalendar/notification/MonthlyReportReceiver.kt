@@ -18,6 +18,7 @@ import ru.sumenkov.savingscalendar.R
 import ru.sumenkov.savingscalendar.data.db.AppDatabase
 import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
@@ -29,9 +30,23 @@ class MonthlyReportReceiver : BroadcastReceiver() {
             try {
                 val settingsRepository = SettingsRepository(context.applicationContext)
                 val settings = settingsRepository.settings.first()
+                val scheduler = ReminderScheduler(context.applicationContext)
+                if (!settings.monthlyReportsEnabled) return@launch
+
                 val repository = SavingsRepository(AppDatabase.get(context).savingsDao())
                 val yearMonth = YearMonth.now()
-                val report = repository.monthlyReport(yearMonth)
+                val accumulationStartDate = settings.accumulationStartDate()
+                val accumulationEndDate = settings.accumulationEndDate()
+                if (!yearMonth.intersects(accumulationStartDate, accumulationEndDate)) {
+                    scheduler.scheduleMonthlyReport(settings.monthlyReportHour, settings.monthlyReportMinute)
+                    return@launch
+                }
+
+                val report = repository.monthlyReport(
+                    yearMonth = yearMonth,
+                    accumulationStartDate = accumulationStartDate,
+                    accumulationEndDate = accumulationEndDate
+                )
                 val monthName = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
 
                 val openIntent = PendingIntent.getActivity(
@@ -44,12 +59,12 @@ class MonthlyReportReceiver : BroadcastReceiver() {
                 val notification = NotificationCompat.Builder(context, NotificationChannels.MONTHLY_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notification_small)
                     .setContentTitle("Итоги месяца: $monthName")
-                    .setContentText("За месяц: ${report.monthTotal} ${settings.currencySymbol}, всего за год: ${report.yearTotal} ${settings.currencySymbol}.")
+                    .setContentText("За месяц: ${report.monthTotal} ${settings.currencySymbol}, за период: ${report.periodTotal} ${settings.currencySymbol}.")
                     .setStyle(
                         NotificationCompat.BigTextStyle().bigText(
                             "За месяц внесено ${report.monthTotal} ${settings.currencySymbol}. " +
-                                "Всего с начала года: ${report.yearTotal} ${settings.currencySymbol}. " +
-                                "Отмечено дней: ${report.completedDaysInMonth} из ${report.daysInMonth}."
+                                "Всего за период: ${report.periodTotal} ${settings.currencySymbol}. " +
+                                "Отмечено дней периода в месяце: ${report.completedDaysInMonth} из ${report.plannedDaysInMonth}."
                         )
                     )
                     .setContentIntent(openIntent)
@@ -62,12 +77,7 @@ class MonthlyReportReceiver : BroadcastReceiver() {
                     NotificationManagerCompat.from(context).notify(MONTHLY_NOTIFICATION_ID, notification)
                 }
 
-                if (settings.monthlyReportsEnabled) {
-                    ReminderScheduler(context.applicationContext).scheduleMonthlyReport(
-                        settings.monthlyReportHour,
-                        settings.monthlyReportMinute
-                    )
-                }
+                scheduler.scheduleMonthlyReport(settings.monthlyReportHour, settings.monthlyReportMinute)
             } finally {
                 pendingResult.finish()
             }
@@ -77,4 +87,10 @@ class MonthlyReportReceiver : BroadcastReceiver() {
     companion object {
         private const val MONTHLY_NOTIFICATION_ID = 2002
     }
+}
+
+private fun YearMonth.intersects(startDate: LocalDate, endDate: LocalDate): Boolean {
+    val monthStart = atDay(1)
+    val monthEnd = atEndOfMonth()
+    return !monthEnd.isBefore(startDate) && !monthStart.isAfter(endDate)
 }

@@ -46,15 +46,44 @@ class SavingsRepositoryTest {
     fun monthlyReportUsesOnlySelectedMonthForMonthTotal() = runBlocking {
         val dao = FakeSavingsDao()
         val repository = SavingsRepository(dao)
+        val startDate = LocalDate.of(2026, 5, 6)
+        val endDate = LocalDate.of(2026, 5, 10)
 
-        repository.confirmDate(LocalDate.of(2026, 1, 31), baseRate = 1L)
-        repository.confirmDate(LocalDate.of(2026, 2, 1), baseRate = 1L)
+        repository.confirmDate(LocalDate.of(2026, 5, 5), baseRate = 1L)
+        repository.confirmDate(LocalDate.of(2026, 5, 6), baseRate = 1L, accumulationStartDate = startDate)
+        repository.confirmDate(LocalDate.of(2026, 5, 10), baseRate = 1L, accumulationStartDate = startDate)
+        repository.confirmDate(LocalDate.of(2026, 5, 11), baseRate = 1L)
 
-        val report = repository.monthlyReport(YearMonth.of(2026, 1))
+        val report = repository.monthlyReport(
+            yearMonth = YearMonth.of(2026, 5),
+            accumulationStartDate = startDate,
+            accumulationEndDate = endDate
+        )
 
-        assertEquals(31L, report.monthTotal)
-        assertEquals(63L, report.yearTotal)
-        assertEquals(1, report.completedDaysInMonth)
+        assertEquals(6L, report.monthTotal)
+        assertEquals(6L, report.periodTotal)
+        assertEquals(2, report.completedDaysInMonth)
+        assertEquals(5, report.plannedDaysInMonth)
+        assertEquals(40, report.completionPercent)
+    }
+
+    @Test
+    fun monthlyReportReturnsEmptyMonthWhenMonthIsOutsidePeriod() = runBlocking {
+        val dao = FakeSavingsDao()
+        val repository = SavingsRepository(dao)
+
+        repository.confirmDate(LocalDate.of(2026, 5, 6), baseRate = 1L, accumulationStartDate = LocalDate.of(2026, 5, 6))
+
+        val report = repository.monthlyReport(
+            yearMonth = YearMonth.of(2026, 6),
+            accumulationStartDate = LocalDate.of(2026, 5, 6),
+            accumulationEndDate = LocalDate.of(2026, 5, 10)
+        )
+
+        assertEquals(0L, report.monthTotal)
+        assertEquals(1L, report.periodTotal)
+        assertEquals(0, report.completedDaysInMonth)
+        assertEquals(0, report.plannedDaysInMonth)
     }
 
     @Test

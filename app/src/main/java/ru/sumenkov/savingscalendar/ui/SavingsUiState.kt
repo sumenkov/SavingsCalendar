@@ -10,7 +10,7 @@ data class SavingsUiState(
     val todayAmount: Long = 0L,
     val todayDayNumberInPeriod: Int? = null,
     val todayConfirmed: Boolean = false,
-    val yearTotal: Long = 0L,
+    val periodTotal: Long = 0L,
     val historyTotal: Long = 0L,
     val forecastToEndOfPeriod: Long = 0L,
     val entries: List<SavingsEntry> = emptyList(),

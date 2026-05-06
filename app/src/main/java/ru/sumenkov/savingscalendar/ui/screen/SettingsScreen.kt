@@ -263,21 +263,31 @@ private fun AccumulationPeriodCard(
 ) {
     val minDate = state.today.minusYears(1)
     val maxDate = state.today.plusYears(1)
+    val startDate = state.settings.accumulationStartDate()
+    val endDate = state.settings.accumulationEndDate()
+    val startMaxDate = maxOf(minDate, minOf(maxDate, endDate))
+    val endMinDate = minOf(maxDate, maxOf(minDate, startDate))
+    val formatter = remember { DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Период накоплений", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Доступный диапазон: ${minDate.format(formatter)} - ${maxDate.format(formatter)}. " +
+                    "Начало нельзя выбрать позже конца.",
+                style = MaterialTheme.typography.bodyMedium
+            )
             DateSettingRow(
                 title = "Начало",
-                date = state.settings.accumulationStartDate(),
+                date = startDate,
                 minDate = minDate,
-                maxDate = maxDate,
+                maxDate = startMaxDate,
                 onDateChange = onStartDateChange
             )
             DateSettingRow(
                 title = "Конец",
-                date = state.settings.accumulationEndDate(),
-                minDate = minDate,
+                date = endDate,
+                minDate = endMinDate,
                 maxDate = maxDate,
                 onDateChange = onEndDateChange
             )

@@ -31,7 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import ru.sumenkov.savingscalendar.domain.calendarRangeAround
+import ru.sumenkov.savingscalendar.domain.calendarRangeForPeriod
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
 import java.time.LocalDate
 import java.time.YearMonth
@@ -55,7 +55,11 @@ fun CalendarScreen(
     val accumulationEndDate = state.settings.accumulationEndDate()
     val firstDayOffset = yearMonth.atDay(1).dayOfWeek.value - 1
     val days = List(firstDayOffset) { null } + (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
-    val calendarRange = calendarRangeAround(state.today)
+    val calendarRange = calendarRangeForPeriod(
+        today = state.today,
+        accumulationStartDate = accumulationStartDate,
+        accumulationEndDate = accumulationEndDate
+    )
     val canGoPrevious = calendarRange.canGoPrevious(yearMonth)
     val canGoNext = calendarRange.canGoNext(yearMonth)
 
@@ -72,8 +76,9 @@ fun CalendarScreen(
         ) {
             TextButton(
                 onClick = {
-                    yearMonth = yearMonth.minusMonths(1)
-                    selectedDate = yearMonth.atDay(1)
+                    val previousMonth = yearMonth.minusMonths(1)
+                    yearMonth = previousMonth
+                    selectedDate = previousMonth.atDay(1)
                 },
                 enabled = canGoPrevious
             ) {
@@ -87,8 +92,9 @@ fun CalendarScreen(
             )
             TextButton(
                 onClick = {
-                    yearMonth = yearMonth.plusMonths(1)
-                    selectedDate = yearMonth.atDay(1)
+                    val nextMonth = yearMonth.plusMonths(1)
+                    yearMonth = nextMonth
+                    selectedDate = nextMonth.atDay(1)
                 },
                 enabled = canGoNext
             ) {
@@ -239,7 +245,7 @@ private fun DayDetailsCard(
                 if (dayNumberInPeriod != null) {
                     "День периода №$dayNumberInPeriod"
                 } else {
-                    "День года №${date.dayOfYear}"
+                    "День вне периода"
                 }
             )
             Text("Сумма: $amount $currencySymbol")

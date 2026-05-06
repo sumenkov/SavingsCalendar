@@ -115,12 +115,14 @@ class SavingsViewModel(
     fun setAccumulationStartDate(date: LocalDate) {
         viewModelScope.launch {
             settingsRepository.setAccumulationStartDate(date)
+            refreshMonthlyReport()
         }
     }
 
     fun setAccumulationEndDate(date: LocalDate) {
         viewModelScope.launch {
             settingsRepository.setAccumulationEndDate(date)
+            refreshMonthlyReport()
         }
     }
 
@@ -197,7 +199,7 @@ class SavingsViewModel(
                     todayAmount = todayAmount,
                     todayDayNumberInPeriod = todayDayNumberInPeriod,
                     todayConfirmed = todayConfirmed,
-                    yearTotal = periodTotal,
+                    periodTotal = periodTotal,
                     historyTotal = entries.sumOf { it.amount },
                     forecastToEndOfPeriod = calculator.forecastToEndOfPeriod(
                         today = today,
@@ -221,7 +223,12 @@ class SavingsViewModel(
 
     private fun refreshMonthlyReport(date: LocalDate = today.value) {
         viewModelScope.launch {
-            val report = savingsRepository.monthlyReport(YearMonth.from(date))
+            val settings = settingsRepository.settings.first()
+            val report = savingsRepository.monthlyReport(
+                yearMonth = YearMonth.from(date),
+                accumulationStartDate = settings.accumulationStartDate(),
+                accumulationEndDate = settings.accumulationEndDate()
+            )
             _state.update { it.copy(monthlyReport = report) }
         }
     }

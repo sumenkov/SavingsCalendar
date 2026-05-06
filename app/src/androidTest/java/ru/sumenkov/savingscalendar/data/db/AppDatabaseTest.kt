@@ -48,24 +48,34 @@ class AppDatabaseTest {
         repository.confirmDate(LocalDate.of(2026, 1, 1), baseRate = 1L)
         repository.confirmDate(LocalDate.of(2026, 1, 2), baseRate = 5L)
 
-        val report = repository.monthlyReport(YearMonth.of(2026, 1))
+        val report = repository.monthlyReport(
+            yearMonth = YearMonth.of(2026, 1),
+            accumulationStartDate = LocalDate.of(2026, 1, 1),
+            accumulationEndDate = LocalDate.of(2026, 1, 31)
+        )
 
         assertEquals(11L, report.monthTotal)
-        assertEquals(11L, report.yearTotal)
+        assertEquals(11L, report.periodTotal)
         assertEquals(2, report.completedDaysInMonth)
     }
 
     @Test
     fun monthlyReportUsesOnlyConfirmedEntriesInSelectedMonth() = runBlocking {
-        repository.confirmDate(LocalDate.of(2026, 1, 31), baseRate = 1L)
-        repository.confirmDate(LocalDate.of(2026, 2, 1), baseRate = 1L)
+        val startDate = LocalDate.of(2026, 1, 31)
+        val endDate = LocalDate.of(2026, 2, 1)
+        repository.confirmDate(LocalDate.of(2026, 1, 31), baseRate = 1L, accumulationStartDate = startDate)
+        repository.confirmDate(LocalDate.of(2026, 2, 1), baseRate = 1L, accumulationStartDate = startDate)
 
-        val january = repository.monthlyReport(YearMonth.of(2026, 1))
+        val january = repository.monthlyReport(
+            yearMonth = YearMonth.of(2026, 1),
+            accumulationStartDate = startDate,
+            accumulationEndDate = endDate
+        )
 
-        assertEquals(31L, january.monthTotal)
-        assertEquals(63L, january.yearTotal)
+        assertEquals(1L, january.monthTotal)
+        assertEquals(3L, january.periodTotal)
         assertEquals(1, january.completedDaysInMonth)
-        assertEquals(31, january.daysInMonth)
+        assertEquals(1, january.plannedDaysInMonth)
     }
 
     @Test
@@ -75,9 +85,13 @@ class AppDatabaseTest {
 
         repository.deleteDate(date)
 
-        val report = repository.monthlyReport(YearMonth.of(2026, 1))
+        val report = repository.monthlyReport(
+            yearMonth = YearMonth.of(2026, 1),
+            accumulationStartDate = LocalDate.of(2026, 1, 1),
+            accumulationEndDate = LocalDate.of(2026, 1, 31)
+        )
         assertEquals(0L, report.monthTotal)
-        assertEquals(0L, report.yearTotal)
+        assertEquals(0L, report.periodTotal)
         assertEquals(0, report.completedDaysInMonth)
     }
 
