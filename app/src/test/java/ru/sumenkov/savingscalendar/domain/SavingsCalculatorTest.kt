@@ -12,9 +12,9 @@ class SavingsCalculatorTest {
 
     @Test
     fun amountForDayUsesDayNumberAndBaseRate() {
-        assertEquals(1L, calculator.amountForDay(dayOfYear = 1, baseRate = 1L))
-        assertEquals(53L, calculator.amountForDay(dayOfYear = 53, baseRate = 1L))
-        assertEquals(265L, calculator.amountForDay(dayOfYear = 53, baseRate = 5L))
+        assertEquals(1L, calculator.amountForDay(dayNumber = 1, baseRate = 1L))
+        assertEquals(53L, calculator.amountForDay(dayNumber = 53, baseRate = 1L))
+        assertEquals(265L, calculator.amountForDay(dayNumber = 53, baseRate = 5L))
     }
 
     @Test
@@ -22,7 +22,7 @@ class SavingsCalculatorTest {
         assertEquals(
             5L,
             calculator.amountForDay(
-                dayOfYear = 53,
+                dayNumber = 53,
                 baseRate = 5L,
                 amountMode = SavingsAmountMode.FIXED
             )

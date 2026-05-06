@@ -3,11 +3,13 @@ package ru.sumenkov.savingscalendar.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
 import ru.sumenkov.savingscalendar.data.settings.AppSettings
@@ -15,7 +17,9 @@ import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.domain.SavingsCalculator
 import ru.sumenkov.savingscalendar.notification.ReminderScheduler
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 
 class SavingsViewModel(
@@ -25,11 +29,13 @@ class SavingsViewModel(
     private val calculator: SavingsCalculator = SavingsCalculator()
 ) : ViewModel() {
     private val _state = MutableStateFlow(SavingsUiState())
+    private val today = MutableStateFlow(LocalDate.now())
     val state: StateFlow<SavingsUiState> = _state
 
     init {
         observeState()
         refreshMonthlyReport()
+        startTodayTicker()
         syncNotificationSchedule()
     }
 
@@ -152,13 +158,19 @@ class SavingsViewModel(
         }
     }
 
+    fun refreshToday() {
+        val currentDate = LocalDate.now()
+        today.value = currentDate
+        refreshMonthlyReport(currentDate)
+    }
+
     private fun observeState() {
         viewModelScope.launch {
             combine(
                 savingsRepository.observeAll(),
-                settingsRepository.settings
-            ) { entries, settings ->
-                val today = LocalDate.now()
+                settingsRepository.settings,
+                today
+            ) { entries, settings, today ->
                 val periodEntries = entries.filter { settings.isDateInAccumulationPeriod(it.date) }
                 val periodTotal = periodEntries.sumOf { it.amount }
                 val todayDayNumberInPeriod = if (settings.isDateInAccumulationPeriod(today)) {
@@ -207,11 +219,30 @@ class SavingsViewModel(
         }
     }
 
-    private fun refreshMonthlyReport() {
+    private fun refreshMonthlyReport(date: LocalDate = today.value) {
         viewModelScope.launch {
-            val report = savingsRepository.monthlyReport(YearMonth.now())
+            val report = savingsRepository.monthlyReport(YearMonth.from(date))
             _state.update { it.copy(monthlyReport = report) }
         }
+    }
+
+    private fun startTodayTicker() {
+        viewModelScope.launch {
+            while (isActive) {
+                val currentDate = LocalDate.now()
+                if (today.value != currentDate) {
+                    today.value = currentDate
+                    refreshMonthlyReport(currentDate)
+                }
+                delay(millisUntilNextDate())
+            }
+        }
+    }
+
+    private fun millisUntilNextDate(): Long {
+        val now = LocalDateTime.now()
+        val nextDate = now.toLocalDate().plusDays(1).atStartOfDay().plusSeconds(1)
+        return maxOf(1_000L, Duration.between(now, nextDate).toMillis())
     }
 
     private fun syncNotificationSchedule(settings: AppSettings) {

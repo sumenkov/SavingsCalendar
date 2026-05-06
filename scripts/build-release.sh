@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 RUN_TESTS=1
+ALLOW_DIRTY=0
 NEXT_VERSION_NAME=""
 NEXT_VERSION_CODE=""
 
@@ -17,6 +18,7 @@ usage() {
   ./scripts/build-release.sh --version 1.0.5
   ./scripts/build-release.sh --version 1.0.5 --code 5
   ./scripts/build-release.sh --skip-tests
+  ./scripts/build-release.sh --allow-dirty
 
 Переменные окружения, если нужно переопределить подпись:
   ANDROID_KEYSTORE_PATH
@@ -42,6 +44,10 @@ while [[ $# -gt 0 ]]; do
       RUN_TESTS=0
       shift
       ;;
+    --allow-dirty)
+      ALLOW_DIRTY=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -58,6 +64,13 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$ALLOW_DIRTY" -ne 1 ]] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Рабочее дерево не чистое. Закоммить изменения или запусти с --allow-dirty." >&2
+    exit 1
+  fi
+fi
 
 if [[ -n "$NEXT_VERSION_NAME" && ! "$NEXT_VERSION_NAME" =~ ^[0-9]+(\.[0-9]+){1,3}([-+][A-Za-z0-9._-]+)?$ ]]; then
   echo "Некорректная версия: $NEXT_VERSION_NAME" >&2

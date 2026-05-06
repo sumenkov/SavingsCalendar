@@ -15,7 +15,6 @@ data class SavingsEntry(
     val id: Long = 0,
     val date: LocalDate,
     val year: Int,
-    val dayOfYear: Int,
     val baseRate: Long,
     val amount: Long,
     val confirmedAt: LocalDateTime,

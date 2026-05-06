@@ -6,15 +6,15 @@ import java.time.temporal.ChronoUnit
 
 class SavingsCalculator {
     fun amountForDay(
-        dayOfYear: Int,
+        dayNumber: Int,
         baseRate: Long,
         amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
     ): Long {
-        require(dayOfYear >= 1) { "dayOfYear must be positive" }
+        require(dayNumber >= 1) { "dayNumber must be positive" }
         require(baseRate >= 0) { "baseRate must be non-negative" }
 
         return when (amountMode) {
-            SavingsAmountMode.DAILY_GROWTH -> dayOfYear.toLong() * baseRate
+            SavingsAmountMode.DAILY_GROWTH -> dayNumber.toLong() * baseRate
             SavingsAmountMode.FIXED -> baseRate
         }
     }
@@ -26,7 +26,7 @@ class SavingsCalculator {
         accumulationStartDate: LocalDate = LocalDate.of(date.year, 1, 1)
     ): Long {
         return amountForDay(
-            dayOfYear = dayNumberInPeriod(date, accumulationStartDate),
+            dayNumber = dayNumberInPeriod(date, accumulationStartDate),
             baseRate = baseRate,
             amountMode = amountMode
         )

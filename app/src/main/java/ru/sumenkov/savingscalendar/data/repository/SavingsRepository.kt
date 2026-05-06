@@ -36,7 +36,6 @@ class SavingsRepository(
             SavingsEntry(
                 date = date,
                 year = date.year,
-                dayOfYear = date.dayOfYear,
                 baseRate = baseRate,
                 amount = amount,
                 confirmedAt = LocalDateTime.now()

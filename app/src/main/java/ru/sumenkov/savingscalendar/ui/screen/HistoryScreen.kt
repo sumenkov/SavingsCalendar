@@ -131,7 +131,7 @@ private fun HistoryEntryCard(
                         text = entry.date.format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru"))),
                         fontWeight = FontWeight.SemiBold
                     )
-                    Text("День №${entry.dayOfYear}")
+                    Text("Ставка: ${entry.baseRate} $currencySymbol")
                 }
                 Text(
                     text = "${entry.amount} $currencySymbol",

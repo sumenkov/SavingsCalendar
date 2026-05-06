@@ -7,17 +7,22 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import java.time.LocalDate
-import java.time.MonthDay
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
 class SettingsRepository(
     private val context: Context
 ) {
+    @Volatile
+    private var accumulationPeriodMigrationChecked = false
+
     private object Keys {
         val baseRate = longPreferencesKey("base_rate")
         val remindersEnabled = booleanPreferencesKey("reminders_enabled")
@@ -33,35 +38,44 @@ class SettingsRepository(
         val amountMode = stringPreferencesKey("amount_mode")
     }
 
-    val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
+    val settings: Flow<AppSettings> = flow {
+        migrateAccumulationPeriodDatesIfNeeded()
+        emitAll(context.dataStore.data.map { prefs ->
+            prefs.toAppSettings()
+        })
+    }.distinctUntilChanged()
+
+    private fun androidx.datastore.preferences.core.Preferences.toAppSettings(): AppSettings {
         val defaultYear = LocalDate.now().year
         val defaultStart = LocalDate.of(defaultYear, 1, 1)
         val defaultEnd = LocalDate.of(defaultYear, 12, 31)
-        val accumulationStart = parseAccumulationDate(
-            value = prefs[Keys.accumulationStart],
-            fallback = defaultStart
-        )
-        val rawAccumulationEnd = parseAccumulationDate(
-            value = prefs[Keys.accumulationEnd],
-            fallback = defaultEnd
-        )
-        AppSettings(
-            baseRate = prefs[Keys.baseRate] ?: 1L,
-            remindersEnabled = prefs[Keys.remindersEnabled] ?: true,
-            reminderHour = prefs[Keys.reminderHour] ?: 20,
-            reminderMinute = prefs[Keys.reminderMinute] ?: 0,
-            monthlyReportsEnabled = prefs[Keys.monthlyReportsEnabled] ?: true,
-            monthlyReportHour = prefs[Keys.monthlyReportHour] ?: 20,
-            monthlyReportMinute = prefs[Keys.monthlyReportMinute] ?: 30,
-            allowPastDays = prefs[Keys.allowPastDays] ?: true,
-            currencySymbol = prefs[Keys.currencySymbol] ?: "₽",
+        val accumulationStart = parseStoredAccumulationDate(
+            value = this[Keys.accumulationStart],
+            fallback = defaultStart,
+            migrationYear = defaultYear
+        ).date
+        val rawAccumulationEnd = parseStoredAccumulationDate(
+            value = this[Keys.accumulationEnd],
+            fallback = defaultEnd,
+            migrationYear = defaultYear
+        ).date
+        return AppSettings(
+            baseRate = this[Keys.baseRate] ?: 1L,
+            remindersEnabled = this[Keys.remindersEnabled] ?: true,
+            reminderHour = this[Keys.reminderHour] ?: 20,
+            reminderMinute = this[Keys.reminderMinute] ?: 0,
+            monthlyReportsEnabled = this[Keys.monthlyReportsEnabled] ?: true,
+            monthlyReportHour = this[Keys.monthlyReportHour] ?: 20,
+            monthlyReportMinute = this[Keys.monthlyReportMinute] ?: 30,
+            allowPastDays = this[Keys.allowPastDays] ?: true,
+            currencySymbol = this[Keys.currencySymbol] ?: "₽",
             accumulationStart = accumulationStart,
             accumulationEnd = if (rawAccumulationEnd.isBefore(accumulationStart)) {
                 accumulationStart
             } else {
                 rawAccumulationEnd
             },
-            amountMode = parseAmountMode(prefs[Keys.amountMode])
+            amountMode = parseAmountMode(this[Keys.amountMode])
         )
     }
 
@@ -102,10 +116,11 @@ class SettingsRepository(
 
     suspend fun setAccumulationStartDate(date: LocalDate) {
         context.dataStore.edit { prefs ->
-            val currentEnd = parseAccumulationDate(
+            val currentEnd = parseStoredAccumulationDate(
                 value = prefs[Keys.accumulationEnd],
-                fallback = defaultEndDate()
-            )
+                fallback = defaultEndDate(),
+                migrationYear = LocalDate.now().year
+            ).date
             prefs[Keys.accumulationStart] = date.toString()
             if (currentEnd.isBefore(date)) {
                 prefs[Keys.accumulationEnd] = date.toString()
@@ -115,10 +130,11 @@ class SettingsRepository(
 
     suspend fun setAccumulationEndDate(date: LocalDate) {
         context.dataStore.edit { prefs ->
-            val currentStart = parseAccumulationDate(
+            val currentStart = parseStoredAccumulationDate(
                 value = prefs[Keys.accumulationStart],
-                fallback = defaultStartDate()
-            )
+                fallback = defaultStartDate(),
+                migrationYear = LocalDate.now().year
+            ).date
             if (currentStart.isAfter(date)) {
                 prefs[Keys.accumulationStart] = date.toString()
             }
@@ -130,11 +146,33 @@ class SettingsRepository(
         context.dataStore.edit { prefs -> prefs[Keys.amountMode] = mode.name }
     }
 
-    private fun parseAccumulationDate(value: String?, fallback: LocalDate): LocalDate {
-        return value?.let { stored ->
-            runCatching { LocalDate.parse(stored) }.getOrNull()
-                ?: runCatching { MonthDay.parse(stored).atYear(LocalDate.now().year) }.getOrNull()
-        } ?: fallback
+    private suspend fun migrateAccumulationPeriodDatesIfNeeded() {
+        if (accumulationPeriodMigrationChecked) return
+
+        context.dataStore.edit { prefs ->
+            val migrationYear = LocalDate.now().year
+            val start = parseStoredAccumulationDate(
+                value = prefs[Keys.accumulationStart],
+                fallback = LocalDate.of(migrationYear, 1, 1),
+                migrationYear = migrationYear
+            )
+            val end = parseStoredAccumulationDate(
+                value = prefs[Keys.accumulationEnd],
+                fallback = LocalDate.of(migrationYear, 12, 31),
+                migrationYear = migrationYear
+            )
+
+            if (start.shouldPersist) {
+                prefs[Keys.accumulationStart] = start.date.toString()
+            }
+
+            val normalizedEnd = if (end.date.isBefore(start.date)) start.date else end.date
+            if (end.shouldPersist || normalizedEnd != end.date) {
+                prefs[Keys.accumulationEnd] = normalizedEnd.toString()
+            }
+        }
+
+        accumulationPeriodMigrationChecked = true
     }
 
     private fun parseAmountMode(value: String?): SavingsAmountMode {

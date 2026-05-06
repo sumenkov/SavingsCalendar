@@ -73,6 +73,16 @@ class MainActivity : ComponentActivity() {
                 )
             )
 
+            DisposableEffect(lifecycleOwner, viewModel) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        viewModel.refreshToday()
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+
             LaunchedEffect(permissionState.exactAlarmsGranted) {
                 viewModel.syncNotificationSchedule()
             }
