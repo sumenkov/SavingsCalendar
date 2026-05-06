@@ -1,15 +1,22 @@
 package ru.sumenkov.savingscalendar.ui
 
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -20,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import ru.sumenkov.savingscalendar.R
 import ru.sumenkov.savingscalendar.ui.screen.CalendarScreen
 import ru.sumenkov.savingscalendar.ui.screen.HistoryScreen
@@ -39,7 +47,8 @@ fun SavingsApp(
     viewModel: SavingsViewModel,
     notificationPermissionState: NotificationPermissionUiState,
     onRequestNotificationPermission: () -> Unit,
-    onOpenExactAlarmSettings: () -> Unit
+    onOpenExactAlarmSettings: () -> Unit,
+    onInstallUpdate: (Uri) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(AppTab.Home.ordinal) }
@@ -125,4 +134,59 @@ fun SavingsApp(
             }
         }
     }
+
+    UpdateDialog(
+        state = state,
+        onDismiss = viewModel::dismissUpdate,
+        onDownloadAndInstall = { viewModel.downloadUpdate(onInstallUpdate) }
+    )
+}
+
+@Composable
+private fun UpdateDialog(
+    state: SavingsUiState,
+    onDismiss: () -> Unit,
+    onDownloadAndInstall: () -> Unit
+) {
+    val update = state.availableUpdate ?: return
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!state.updateDownloadInProgress) onDismiss()
+        },
+        title = { Text("Доступна новая версия") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Можно установить ${update.title}. Текущие данные приложения сохранятся.")
+                if (state.updateDownloadInProgress) {
+                    val progress = state.updateDownloadProgress
+                    if (progress == null) {
+                        LinearProgressIndicator()
+                    } else {
+                        LinearProgressIndicator(progress = { progress / 100f })
+                        Text("Скачивание: $progress%")
+                    }
+                }
+                state.updateErrorMessage?.let { message ->
+                    Text(message)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDownloadAndInstall,
+                enabled = !state.updateDownloadInProgress
+            ) {
+                Text("Скачать и установить")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !state.updateDownloadInProgress
+            ) {
+                Text("Позже")
+            }
+        }
+    )
 }

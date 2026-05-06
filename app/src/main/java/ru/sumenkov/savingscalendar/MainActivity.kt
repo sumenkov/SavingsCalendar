@@ -27,6 +27,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.sumenkov.savingscalendar.data.db.AppDatabase
 import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
+import ru.sumenkov.savingscalendar.data.update.ApkUpdateInstaller
+import ru.sumenkov.savingscalendar.data.update.GitHubReleaseClient
+import ru.sumenkov.savingscalendar.data.update.UpdateRepository
 import ru.sumenkov.savingscalendar.notification.ReminderScheduler
 import ru.sumenkov.savingscalendar.ui.NotificationPermissionUiState
 import ru.sumenkov.savingscalendar.ui.SavingsApp
@@ -64,12 +67,37 @@ class MainActivity : ComponentActivity() {
             val savingsRepository = remember { SavingsRepository(database.savingsDao()) }
             val settingsRepository = remember { SettingsRepository(applicationContext) }
             val reminderScheduler = remember { ReminderScheduler(applicationContext) }
+            val updateRepository = remember {
+                UpdateRepository(
+                    releaseClient = GitHubReleaseClient(
+                        owner = "sumenkov",
+                        repository = "SavingsCalendar",
+                        userAgent = "SavingsCalendar/${BuildConfig.VERSION_NAME}"
+                    ),
+                    currentVersionName = BuildConfig.VERSION_NAME
+                )
+            }
+            val apkUpdateInstaller = remember { ApkUpdateInstaller(applicationContext) }
+            var pendingInstallUri by remember { mutableStateOf<Uri?>(null) }
+            val unknownSourcesSettingsLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult(),
+                onResult = {
+                    pendingInstallUri?.let { uri ->
+                        if (canInstallPackages()) {
+                            pendingInstallUri = null
+                            openApkInstaller(uri)
+                        }
+                    }
+                }
+            )
 
             val viewModel: SavingsViewModel = viewModel(
                 factory = SavingsViewModelFactory(
                     savingsRepository = savingsRepository,
                     settingsRepository = settingsRepository,
-                    reminderScheduler = reminderScheduler
+                    reminderScheduler = reminderScheduler,
+                    updateRepository = updateRepository,
+                    apkUpdateInstaller = apkUpdateInstaller
                 )
             )
 
@@ -77,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         viewModel.refreshToday()
+                        viewModel.checkForUpdates()
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -99,6 +128,16 @@ class MainActivity : ComponentActivity() {
                     onOpenExactAlarmSettings = {
                         openExactAlarmSettings { intent ->
                             exactAlarmSettingsLauncher.launch(intent)
+                        }
+                    },
+                    onInstallUpdate = { apkUri ->
+                        if (canInstallPackages()) {
+                            openApkInstaller(apkUri)
+                        } else {
+                            pendingInstallUri = apkUri
+                            openUnknownSourcesSettings { intent ->
+                                unknownSourcesSettingsLauncher.launch(intent)
+                            }
                         }
                     }
                 )
@@ -141,5 +180,36 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
+    }
+
+    private fun canInstallPackages(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            packageManager.canRequestPackageInstalls()
+    }
+
+    private fun openUnknownSourcesSettings(launch: (Intent) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+        val packageUri = Uri.parse("package:$packageName")
+        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+            data = packageUri
+        }
+        try {
+            launch(intent)
+        } catch (_: ActivityNotFoundException) {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = packageUri
+                }
+            )
+        }
+    }
+
+    private fun openApkInstaller(apkUri: Uri) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(intent)
     }
 }

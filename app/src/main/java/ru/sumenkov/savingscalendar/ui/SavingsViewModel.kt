@@ -1,5 +1,6 @@
 package ru.sumenkov.savingscalendar.ui
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,8 @@ import kotlinx.coroutines.launch
 import ru.sumenkov.savingscalendar.data.repository.SavingsRepository
 import ru.sumenkov.savingscalendar.data.settings.AppSettings
 import ru.sumenkov.savingscalendar.data.settings.SettingsRepository
+import ru.sumenkov.savingscalendar.data.update.ApkUpdateInstaller
+import ru.sumenkov.savingscalendar.data.update.UpdateRepository
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.domain.SavingsCalculator
 import ru.sumenkov.savingscalendar.notification.ReminderScheduler
@@ -26,10 +29,13 @@ class SavingsViewModel(
     private val savingsRepository: SavingsRepository,
     private val settingsRepository: SettingsRepository,
     private val reminderScheduler: ReminderScheduler,
+    private val updateRepository: UpdateRepository,
+    private val apkUpdateInstaller: ApkUpdateInstaller,
     private val calculator: SavingsCalculator = SavingsCalculator()
 ) : ViewModel() {
     private val _state = MutableStateFlow(SavingsUiState())
     private val today = MutableStateFlow(LocalDate.now())
+    private var lastUpdateCheckMillis = 0L
     val state: StateFlow<SavingsUiState> = _state
 
     init {
@@ -37,6 +43,7 @@ class SavingsViewModel(
         refreshMonthlyReport()
         startTodayTicker()
         syncNotificationSchedule()
+        checkForUpdates()
     }
 
     fun confirmToday() {
@@ -166,6 +173,80 @@ class SavingsViewModel(
         refreshMonthlyReport(currentDate)
     }
 
+    fun checkForUpdates(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastUpdateCheckMillis < UPDATE_CHECK_INTERVAL_MILLIS) return
+        if (_state.value.updateCheckInProgress || _state.value.updateDownloadInProgress) return
+
+        lastUpdateCheckMillis = now
+        viewModelScope.launch {
+            _state.update { it.copy(updateCheckInProgress = true, updateErrorMessage = null) }
+            runCatching { updateRepository.findAvailableUpdate() }
+                .onSuccess { update ->
+                    _state.update {
+                        it.copy(
+                            availableUpdate = update,
+                            updateCheckInProgress = false
+                        )
+                    }
+                }
+                .onFailure {
+                    _state.update { it.copy(updateCheckInProgress = false) }
+                }
+        }
+    }
+
+    fun dismissUpdate() {
+        if (_state.value.updateDownloadInProgress) return
+
+        _state.update {
+            it.copy(
+                availableUpdate = null,
+                updateErrorMessage = null,
+                updateDownloadProgress = null
+            )
+        }
+    }
+
+    fun downloadUpdate(onReadyToInstall: (Uri) -> Unit) {
+        val update = _state.value.availableUpdate ?: return
+        if (_state.value.updateDownloadInProgress) return
+
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    updateDownloadInProgress = true,
+                    updateDownloadProgress = null,
+                    updateErrorMessage = null
+                )
+            }
+            runCatching {
+                apkUpdateInstaller.download(update) { progress ->
+                    _state.update { current -> current.copy(updateDownloadProgress = progress) }
+                }
+            }
+                .onSuccess { apkUri ->
+                    _state.update {
+                        it.copy(
+                            updateDownloadInProgress = false,
+                            updateDownloadProgress = null,
+                            updateErrorMessage = null
+                        )
+                    }
+                    onReadyToInstall(apkUri)
+                }
+                .onFailure {
+                    _state.update {
+                        it.copy(
+                            updateDownloadInProgress = false,
+                            updateDownloadProgress = null,
+                            updateErrorMessage = "Не удалось скачать обновление. Проверьте интернет и попробуйте ещё раз."
+                        )
+                    }
+                }
+        }
+    }
+
     private fun observeState() {
         viewModelScope.launch {
             combine(
@@ -279,19 +360,27 @@ class SavingsViewModel(
 
         return !date.isBefore(today) || settings.allowPastDays
     }
+
+    private companion object {
+        const val UPDATE_CHECK_INTERVAL_MILLIS = 6 * 60 * 60 * 1000L
+    }
 }
 
 class SavingsViewModelFactory(
     private val savingsRepository: SavingsRepository,
     private val settingsRepository: SettingsRepository,
-    private val reminderScheduler: ReminderScheduler
+    private val reminderScheduler: ReminderScheduler,
+    private val updateRepository: UpdateRepository,
+    private val apkUpdateInstaller: ApkUpdateInstaller
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return SavingsViewModel(
             savingsRepository = savingsRepository,
             settingsRepository = settingsRepository,
-            reminderScheduler = reminderScheduler
+            reminderScheduler = reminderScheduler,
+            updateRepository = updateRepository,
+            apkUpdateInstaller = apkUpdateInstaller
         ) as T
     }
 }
