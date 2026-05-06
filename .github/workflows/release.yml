@@ -10,10 +10,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     name: Build signed release APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      ANDROID_COMPILE_SDK: "35"
+      ANDROID_BUILD_TOOLS: "35.0.1"
 
     steps:
       - name: Checkout
@@ -28,21 +40,29 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
       - name: Install Android SDK packages
         run: |
-          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$SDK_ROOT/tools/bin/sdkmanager"
-          fi
-          if [ ! -x "$SDKMANAGER" ]; then
-            echo "sdkmanager not found in Android SDK: $SDK_ROOT" >&2
+          set -euo pipefail
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK_ROOT" ]; then
+            echo "ANDROID_HOME / ANDROID_SDK_ROOT is not set" >&2
             exit 1
           fi
-          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager not found: $SDKMANAGER" >&2
+            exit 1
+          fi
+
           yes 2>/dev/null | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.1"
+          "$SDKMANAGER" \
+            "platforms;android-${ANDROID_COMPILE_SDK}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}"
 
       - name: Validate signing secrets
         env:
@@ -50,19 +70,25 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
+          set -euo pipefail
+
           missing=0
+
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "Missing GitHub secret: ANDROID_KEYSTORE_BASE64" >&2
             missing=1
           fi
+
           if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
             echo "Missing GitHub secret: ANDROID_KEYSTORE_PASSWORD" >&2
             missing=1
           fi
+
           if [ -z "$ANDROID_KEY_ALIAS" ]; then
             echo "Missing GitHub secret: ANDROID_KEY_ALIAS" >&2
             missing=1
           fi
+
           exit "$missing"
 
       - name: Run unit tests
@@ -75,8 +101,10 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          set -euo pipefail
+
           mkdir -p "$RUNNER_TEMP/signing"
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/signing/release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/signing/release.jks"
 
       - name: Sign release APK
         env:
@@ -84,30 +112,62 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.1"
-          VERSION_NAME=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
-          KEY_PASSWORD_ARG=()
-          if [ -n "$ANDROID_KEY_PASSWORD" ]; then
-            KEY_PASSWORD_ARG=(--key-pass "pass:$ANDROID_KEY_PASSWORD")
+          set -euo pipefail
+
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}"
+          ZIPALIGN="$BUILD_TOOLS/zipalign"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+
+          VERSION_NAME=$(awk -F'"' '/versionName[[:space:]]*=/{print $2; exit}' app/build.gradle.kts)
+          if [ -z "$VERSION_NAME" ]; then
+            echo "Could not read versionName from app/build.gradle.kts" >&2
+            exit 1
+          fi
+
+          UNSIGNED_APK=$(find app/build/outputs/apk/release -name "*-release-unsigned.apk" | head -n 1)
+          if [ -z "$UNSIGNED_APK" ]; then
+            echo "Unsigned release APK not found" >&2
+            find app/build/outputs/apk/release -type f >&2 || true
+            exit 1
           fi
 
           mkdir -p release
-          "$BUILD_TOOLS/zipalign" -p -f 4 \
-            app/build/outputs/apk/release/app-release-unsigned.apk \
-            "release/savings-calendar-${VERSION_NAME}-aligned.apk"
-          "$BUILD_TOOLS/apksigner" sign \
+
+          ALIGNED_APK="release/savings-calendar-${VERSION_NAME}-aligned.apk"
+          SIGNED_APK="release/savings-calendar-${VERSION_NAME}.apk"
+
+          "$ZIPALIGN" -P 16 -f -v 4 "$UNSIGNED_APK" "$ALIGNED_APK"
+
+          KEY_PASSWORD_ARG=()
+          if [ -n "${ANDROID_KEY_PASSWORD:-}" ]; then
+            KEY_PASSWORD_ARG=(--key-pass env:ANDROID_KEY_PASSWORD)
+          fi
+
+          "$APKSIGNER" sign \
             --ks "$RUNNER_TEMP/signing/release.jks" \
             --ks-key-alias "$ANDROID_KEY_ALIAS" \
-            --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
             "${KEY_PASSWORD_ARG[@]}" \
-            --out "release/savings-calendar-${VERSION_NAME}.apk" \
-            "release/savings-calendar-${VERSION_NAME}-aligned.apk"
-          "$BUILD_TOOLS/apksigner" verify --verbose "release/savings-calendar-${VERSION_NAME}.apk"
+            --v4-signing-enabled false \
+            --out "$SIGNED_APK" \
+            "$ALIGNED_APK"
+
+          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
           name: savings-calendar-release-apk
+          if-no-files-found: error
+          retention-days: 14
           path: |
             release/savings-calendar-*.apk
             !release/savings-calendar-*-aligned.apk
+
+      - name: Upload ProGuard mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: savings-calendar-release-mapping
+          if-no-files-found: warn
+          retention-days: 14
+          path: app/build/outputs/mapping/release/mapping.txt
