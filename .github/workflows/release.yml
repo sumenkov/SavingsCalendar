@@ -50,9 +50,20 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          test -n "$ANDROID_KEYSTORE_BASE64"
-          test -n "$ANDROID_KEYSTORE_PASSWORD"
-          test -n "$ANDROID_KEY_ALIAS"
+          missing=0
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Missing GitHub secret: ANDROID_KEYSTORE_BASE64" >&2
+            missing=1
+          fi
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo "Missing GitHub secret: ANDROID_KEYSTORE_PASSWORD" >&2
+            missing=1
+          fi
+          if [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "Missing GitHub secret: ANDROID_KEY_ALIAS" >&2
+            missing=1
+          fi
+          exit "$missing"
 
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest
