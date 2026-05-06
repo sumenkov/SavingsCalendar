@@ -2,7 +2,6 @@ package ru.sumenkov.savingscalendar.data.settings
 
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import java.time.LocalDate
-import java.time.MonthDay
 
 data class AppSettings(
     val baseRate: Long = 1L,
@@ -14,21 +13,19 @@ data class AppSettings(
     val monthlyReportMinute: Int = 30,
     val allowPastDays: Boolean = true,
     val currencySymbol: String = "₽",
-    val accumulationStart: MonthDay = MonthDay.of(1, 1),
-    val accumulationEnd: MonthDay = MonthDay.of(12, 31),
+    val accumulationStart: LocalDate = LocalDate.of(LocalDate.now().year, 1, 1),
+    val accumulationEnd: LocalDate = LocalDate.of(LocalDate.now().year, 12, 31),
     val amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
 ) {
-    fun accumulationStartDate(year: Int): LocalDate {
-        return accumulationStart.atYear(year)
+    fun accumulationStartDate(): LocalDate {
+        return accumulationStart
     }
 
-    fun accumulationEndDate(year: Int): LocalDate {
-        return accumulationEnd.atYear(year)
+    fun accumulationEndDate(): LocalDate {
+        return accumulationEnd
     }
 
     fun isDateInAccumulationPeriod(date: LocalDate): Boolean {
-        val startDate = accumulationStartDate(date.year)
-        val endDate = accumulationEndDate(date.year)
-        return !date.isBefore(startDate) && !date.isAfter(endDate)
+        return !date.isBefore(accumulationStart) && !date.isAfter(accumulationEnd)
     }
 }

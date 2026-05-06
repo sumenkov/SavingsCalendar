@@ -52,6 +52,20 @@ class SavingsCalculatorTest {
     }
 
     @Test
+    fun amountForDateSupportsAccumulationPeriodAcrossYears() {
+        val startDate = LocalDate.of(2025, 12, 31)
+
+        assertEquals(
+            3L,
+            calculator.amountForDate(
+                date = LocalDate.of(2026, 1, 2),
+                baseRate = 1L,
+                accumulationStartDate = startDate
+            )
+        )
+    }
+
+    @Test
     fun fullYearPlanSupportsRegularAndLeapYears() {
         assertEquals(66_795L, calculator.fullYearPlan(year = 2025, baseRate = 1L))
         assertEquals(67_161L, calculator.fullYearPlan(year = 2024, baseRate = 1L))
@@ -108,6 +122,18 @@ class SavingsCalculatorTest {
             calculator.plannedTotal(
                 startDate = LocalDate.of(2026, 5, 6),
                 endDate = LocalDate.of(2026, 5, 10),
+                baseRate = 1L
+            )
+        )
+    }
+
+    @Test
+    fun plannedTotalSupportsAccumulationPeriodAcrossYears() {
+        assertEquals(
+            6L,
+            calculator.plannedTotal(
+                startDate = LocalDate.of(2025, 12, 31),
+                endDate = LocalDate.of(2026, 1, 2),
                 baseRate = 1L
             )
         )
@@ -196,6 +222,20 @@ class SavingsCalculatorTest {
         )
 
         assertEquals(12L, forecast)
+    }
+
+    @Test
+    fun forecastSupportsAccumulationPeriodAcrossYears() {
+        val forecast = calculator.forecastToEndOfPeriod(
+            today = LocalDate.of(2026, 1, 1),
+            baseRate = 1L,
+            confirmedDates = emptySet(),
+            confirmedBalance = 0L,
+            accumulationStartDate = LocalDate.of(2025, 12, 31),
+            accumulationEndDate = LocalDate.of(2026, 1, 2)
+        )
+
+        assertEquals(5L, forecast)
     }
 
     @Test

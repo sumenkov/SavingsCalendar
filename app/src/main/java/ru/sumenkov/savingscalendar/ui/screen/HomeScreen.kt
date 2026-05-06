@@ -117,9 +117,9 @@ private fun TodayCard(state: SavingsUiState, onConfirmToday: () -> Unit) {
 
 @Composable
 private fun TotalsCard(state: SavingsUiState) {
-    val formatter = DateTimeFormatter.ofPattern("d MMMM", Locale("ru"))
-    val periodStart = state.settings.accumulationStartDate(state.today.year).format(formatter)
-    val periodEnd = state.settings.accumulationEndDate(state.today.year).format(formatter)
+    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))
+    val periodStart = state.settings.accumulationStartDate().format(formatter)
+    val periodEnd = state.settings.accumulationEndDate().format(formatter)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

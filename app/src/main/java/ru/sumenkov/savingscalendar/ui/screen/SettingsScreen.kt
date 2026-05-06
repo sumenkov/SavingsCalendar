@@ -261,7 +261,6 @@ private fun AccumulationPeriodCard(
     onStartDateChange: (LocalDate) -> Unit,
     onEndDateChange: (LocalDate) -> Unit
 ) {
-    val year = state.today.year
     val minDate = state.today.minusYears(1)
     val maxDate = state.today.plusYears(1)
 
@@ -270,14 +269,14 @@ private fun AccumulationPeriodCard(
             Text("Период накоплений", style = MaterialTheme.typography.titleMedium)
             DateSettingRow(
                 title = "Начало",
-                date = state.settings.accumulationStartDate(year),
+                date = state.settings.accumulationStartDate(),
                 minDate = minDate,
                 maxDate = maxDate,
                 onDateChange = onStartDateChange
             )
             DateSettingRow(
                 title = "Конец",
-                date = state.settings.accumulationEndDate(year),
+                date = state.settings.accumulationEndDate(),
                 minDate = minDate,
                 maxDate = maxDate,
                 onDateChange = onEndDateChange
@@ -330,6 +329,7 @@ private fun SavingsDatePickerDialog(
     onDismiss: () -> Unit,
     onDateChange: (LocalDate) -> Unit
 ) {
+    val safeInitialDate = initialDate.coerceIn(minDate, maxDate)
     val selectableDates = remember(minDate, maxDate) {
         object : SelectableDates {
             override fun isSelectableDate(utcTimeMillis: Long): Boolean {
@@ -343,8 +343,8 @@ private fun SavingsDatePickerDialog(
         }
     }
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialDate.toUtcMillis(),
-        initialDisplayedMonthMillis = initialDate.toUtcMillis(),
+        initialSelectedDateMillis = safeInitialDate.toUtcMillis(),
+        initialDisplayedMonthMillis = safeInitialDate.toUtcMillis(),
         yearRange = minDate.year..maxDate.year,
         selectableDates = selectableDates
     )

@@ -51,8 +51,8 @@ fun CalendarScreen(
     var selectedDate by remember(state.today) { mutableStateOf<LocalDate?>(state.today) }
     var dateToDelete by remember { mutableStateOf<LocalDate?>(null) }
     val confirmedDates = state.entries.map { it.date }.toSet()
-    val accumulationStartDate = state.settings.accumulationStartDate(yearMonth.year)
-    val accumulationEndDate = state.settings.accumulationEndDate(yearMonth.year)
+    val accumulationStartDate = state.settings.accumulationStartDate()
+    val accumulationEndDate = state.settings.accumulationEndDate()
     val firstDayOffset = yearMonth.atDay(1).dayOfWeek.value - 1
     val days = List(firstDayOffset) { null } + (1..yearMonth.lengthOfMonth()).map { yearMonth.atDay(it) }
     val calendarRange = calendarRangeAround(state.today)

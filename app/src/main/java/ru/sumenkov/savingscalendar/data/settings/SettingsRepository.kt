@@ -34,6 +34,17 @@ class SettingsRepository(
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
+        val defaultYear = LocalDate.now().year
+        val defaultStart = LocalDate.of(defaultYear, 1, 1)
+        val defaultEnd = LocalDate.of(defaultYear, 12, 31)
+        val accumulationStart = parseAccumulationDate(
+            value = prefs[Keys.accumulationStart],
+            fallback = defaultStart
+        )
+        val rawAccumulationEnd = parseAccumulationDate(
+            value = prefs[Keys.accumulationEnd],
+            fallback = defaultEnd
+        )
         AppSettings(
             baseRate = prefs[Keys.baseRate] ?: 1L,
             remindersEnabled = prefs[Keys.remindersEnabled] ?: true,
@@ -44,14 +55,12 @@ class SettingsRepository(
             monthlyReportMinute = prefs[Keys.monthlyReportMinute] ?: 30,
             allowPastDays = prefs[Keys.allowPastDays] ?: true,
             currencySymbol = prefs[Keys.currencySymbol] ?: "₽",
-            accumulationStart = parseMonthDay(
-                value = prefs[Keys.accumulationStart],
-                fallback = MonthDay.of(1, 1)
-            ),
-            accumulationEnd = parseMonthDay(
-                value = prefs[Keys.accumulationEnd],
-                fallback = MonthDay.of(12, 31)
-            ),
+            accumulationStart = accumulationStart,
+            accumulationEnd = if (rawAccumulationEnd.isBefore(accumulationStart)) {
+                accumulationStart
+            } else {
+                rawAccumulationEnd
+            },
             amountMode = parseAmountMode(prefs[Keys.amountMode])
         )
     }
@@ -92,30 +101,28 @@ class SettingsRepository(
     }
 
     suspend fun setAccumulationStartDate(date: LocalDate) {
-        val nextStart = MonthDay.from(date)
         context.dataStore.edit { prefs ->
-            val currentEnd = parseMonthDay(
+            val currentEnd = parseAccumulationDate(
                 value = prefs[Keys.accumulationEnd],
-                fallback = MonthDay.of(12, 31)
+                fallback = defaultEndDate()
             )
-            prefs[Keys.accumulationStart] = nextStart.toString()
-            if (currentEnd < nextStart) {
-                prefs[Keys.accumulationEnd] = nextStart.toString()
+            prefs[Keys.accumulationStart] = date.toString()
+            if (currentEnd.isBefore(date)) {
+                prefs[Keys.accumulationEnd] = date.toString()
             }
         }
     }
 
     suspend fun setAccumulationEndDate(date: LocalDate) {
-        val nextEnd = MonthDay.from(date)
         context.dataStore.edit { prefs ->
-            val currentStart = parseMonthDay(
+            val currentStart = parseAccumulationDate(
                 value = prefs[Keys.accumulationStart],
-                fallback = MonthDay.of(1, 1)
+                fallback = defaultStartDate()
             )
-            if (currentStart > nextEnd) {
-                prefs[Keys.accumulationStart] = nextEnd.toString()
+            if (currentStart.isAfter(date)) {
+                prefs[Keys.accumulationStart] = date.toString()
             }
-            prefs[Keys.accumulationEnd] = nextEnd.toString()
+            prefs[Keys.accumulationEnd] = date.toString()
         }
     }
 
@@ -123,15 +130,24 @@ class SettingsRepository(
         context.dataStore.edit { prefs -> prefs[Keys.amountMode] = mode.name }
     }
 
-    private fun parseMonthDay(value: String?, fallback: MonthDay): MonthDay {
-        return value
-            ?.let { runCatching { MonthDay.parse(it) }.getOrNull() }
-            ?: fallback
+    private fun parseAccumulationDate(value: String?, fallback: LocalDate): LocalDate {
+        return value?.let { stored ->
+            runCatching { LocalDate.parse(stored) }.getOrNull()
+                ?: runCatching { MonthDay.parse(stored).atYear(LocalDate.now().year) }.getOrNull()
+        } ?: fallback
     }
 
     private fun parseAmountMode(value: String?): SavingsAmountMode {
         return value
             ?.let { stored -> SavingsAmountMode.entries.firstOrNull { it.name == stored } }
             ?: SavingsAmountMode.DAILY_GROWTH
+    }
+
+    private fun defaultStartDate(): LocalDate {
+        return LocalDate.of(LocalDate.now().year, 1, 1)
+    }
+
+    private fun defaultEndDate(): LocalDate {
+        return LocalDate.of(LocalDate.now().year, 12, 31)
     }
 }

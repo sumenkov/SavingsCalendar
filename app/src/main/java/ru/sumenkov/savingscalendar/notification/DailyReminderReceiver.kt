@@ -38,7 +38,7 @@ class DailyReminderReceiver : BroadcastReceiver() {
                 }
 
                 val calculator = SavingsCalculator()
-                val startDate = settings.accumulationStartDate(today.year)
+                val startDate = settings.accumulationStartDate()
                 val dayNumberInPeriod = calculator.dayNumberInPeriod(today, startDate)
                 val amount = calculator.amountForDate(
                     date = today,

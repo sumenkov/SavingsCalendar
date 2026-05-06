@@ -47,7 +47,7 @@ class SavingsViewModel(
                 date = date,
                 baseRate = settings.baseRate,
                 amountMode = settings.amountMode,
-                accumulationStartDate = settings.accumulationStartDate(date.year)
+                accumulationStartDate = settings.accumulationStartDate()
             )
             refreshMonthlyReport()
         }
@@ -126,11 +126,13 @@ class SavingsViewModel(
 
     fun plannedAmountFor(date: LocalDate): Long {
         val settings = _state.value.settings
+        if (!settings.isDateInAccumulationPeriod(date)) return 0L
+
         return calculator.amountForDate(
             date = date,
             baseRate = settings.baseRate,
             amountMode = settings.amountMode,
-            accumulationStartDate = settings.accumulationStartDate(date.year)
+            accumulationStartDate = settings.accumulationStartDate()
         )
     }
 
@@ -140,7 +142,7 @@ class SavingsViewModel(
 
         return calculator.dayNumberInPeriod(
             date = date,
-            accumulationStartDate = settings.accumulationStartDate(date.year)
+            accumulationStartDate = settings.accumulationStartDate()
         )
     }
 
@@ -157,13 +159,12 @@ class SavingsViewModel(
                 settingsRepository.settings
             ) { entries, settings ->
                 val today = LocalDate.now()
-                val currentYearEntries = entries.filter { it.date.year == today.year }
-                val periodEntries = currentYearEntries.filter { settings.isDateInAccumulationPeriod(it.date) }
+                val periodEntries = entries.filter { settings.isDateInAccumulationPeriod(it.date) }
                 val periodTotal = periodEntries.sumOf { it.amount }
                 val todayDayNumberInPeriod = if (settings.isDateInAccumulationPeriod(today)) {
                     calculator.dayNumberInPeriod(
                         date = today,
-                        accumulationStartDate = settings.accumulationStartDate(today.year)
+                        accumulationStartDate = settings.accumulationStartDate()
                     )
                 } else {
                     null
@@ -173,7 +174,7 @@ class SavingsViewModel(
                         date = today,
                         baseRate = settings.baseRate,
                         amountMode = settings.amountMode,
-                        accumulationStartDate = settings.accumulationStartDate(today.year)
+                        accumulationStartDate = settings.accumulationStartDate()
                     )
                 } else {
                     0L
@@ -192,8 +193,8 @@ class SavingsViewModel(
                         confirmedDates = periodEntries.map { it.date }.toSet(),
                         confirmedBalance = periodTotal,
                         amountMode = settings.amountMode,
-                        accumulationStartDate = settings.accumulationStartDate(today.year),
-                        accumulationEndDate = settings.accumulationEndDate(today.year)
+                        accumulationStartDate = settings.accumulationStartDate(),
+                        accumulationEndDate = settings.accumulationEndDate()
                     ),
                     entries = entries.sortedByDescending { it.date },
                     settings = settings,

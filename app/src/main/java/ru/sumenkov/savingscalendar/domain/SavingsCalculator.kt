@@ -10,7 +10,7 @@ class SavingsCalculator {
         baseRate: Long,
         amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
     ): Long {
-        require(dayOfYear in 1..366) { "dayOfYear must be in 1..366" }
+        require(dayOfYear >= 1) { "dayOfYear must be positive" }
         require(baseRate >= 0) { "baseRate must be non-negative" }
 
         return when (amountMode) {
@@ -33,7 +33,6 @@ class SavingsCalculator {
     }
 
     fun dayNumberInPeriod(date: LocalDate, accumulationStartDate: LocalDate): Int {
-        require(date.year == accumulationStartDate.year) { "date and accumulationStartDate must be in the same year" }
         require(!date.isBefore(accumulationStartDate)) { "date must be on or after accumulationStartDate" }
 
         return ChronoUnit.DAYS.between(accumulationStartDate, date).toInt() + 1
@@ -93,8 +92,6 @@ class SavingsCalculator {
         amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
     ): Long {
         require(confirmedBalance >= 0) { "confirmedBalance must be non-negative" }
-        require(accumulationStartDate.year == today.year) { "accumulationStartDate must be in today's year" }
-        require(accumulationEndDate.year == today.year) { "accumulationEndDate must be in today's year" }
         require(!accumulationEndDate.isBefore(accumulationStartDate)) {
             "accumulationEndDate must be on or after accumulationStartDate"
         }
@@ -123,7 +120,6 @@ class SavingsCalculator {
         baseRate: Long,
         amountMode: SavingsAmountMode = SavingsAmountMode.DAILY_GROWTH
     ): Long {
-        require(startDate.year == endDate.year) { "startDate and endDate must be in the same year" }
         require(!endDate.isBefore(startDate)) { "endDate must be on or after startDate" }
 
         return sumDates(startDate, endDate) { date ->
