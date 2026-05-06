@@ -91,6 +91,8 @@ class MainActivity : ComponentActivity() {
                 }
             )
 
+            var backgroundStartedAtMillis by remember { mutableStateOf<Long?>(null) }
+
             val viewModel: SavingsViewModel = viewModel(
                 factory = SavingsViewModelFactory(
                     savingsRepository = savingsRepository,
@@ -103,9 +105,20 @@ class MainActivity : ComponentActivity() {
 
             DisposableEffect(lifecycleOwner, viewModel) {
                 val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME) {
-                        viewModel.refreshToday()
-                        viewModel.checkForUpdates()
+                    when (event) {
+                        Lifecycle.Event.ON_RESUME -> {
+                            viewModel.refreshToday()
+                            backgroundStartedAtMillis?.let { startedAt ->
+                                viewModel.checkForUpdatesAfterBackground(
+                                    backgroundDurationMillis = System.currentTimeMillis() - startedAt
+                                )
+                                backgroundStartedAtMillis = null
+                            }
+                        }
+                        Lifecycle.Event.ON_STOP -> {
+                            backgroundStartedAtMillis = System.currentTimeMillis()
+                        }
+                        else -> Unit
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)

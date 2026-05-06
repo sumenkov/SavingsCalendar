@@ -36,7 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ru.sumenkov.savingscalendar.BuildConfig
 import ru.sumenkov.savingscalendar.domain.SavingsAmountMode
 import ru.sumenkov.savingscalendar.ui.NotificationPermissionUiState
 import ru.sumenkov.savingscalendar.ui.SavingsUiState
@@ -191,6 +193,8 @@ fun SettingsScreen(
             checked = state.settings.allowPastDays,
             onCheckedChange = onAllowPastDaysChange
         )
+
+        AppVersionText()
     }
 
     if (showHelp) {
@@ -480,6 +484,17 @@ private fun SettingSwitch(
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
     }
+}
+
+@Composable
+private fun AppVersionText() {
+    Text(
+        text = "Версия ${BuildConfig.VERSION_NAME}",
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center
+    )
 }
 
 private fun formatTime(hour: Int, minute: Int): String {

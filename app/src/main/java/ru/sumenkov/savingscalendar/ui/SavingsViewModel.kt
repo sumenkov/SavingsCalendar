@@ -44,6 +44,7 @@ class SavingsViewModel(
         startTodayTicker()
         syncNotificationSchedule()
         checkForUpdates()
+        startUpdateTicker()
     }
 
     fun confirmToday() {
@@ -196,6 +197,12 @@ class SavingsViewModel(
         }
     }
 
+    fun checkForUpdatesAfterBackground(backgroundDurationMillis: Long) {
+        if (backgroundDurationMillis < BACKGROUND_UPDATE_CHECK_DELAY_MILLIS) return
+
+        checkForUpdates(force = true)
+    }
+
     fun dismissUpdate() {
         if (_state.value.updateDownloadInProgress) return
 
@@ -327,6 +334,15 @@ class SavingsViewModel(
         }
     }
 
+    private fun startUpdateTicker() {
+        viewModelScope.launch {
+            while (isActive) {
+                delay(UPDATE_TIMER_INTERVAL_MILLIS)
+                checkForUpdates(force = true)
+            }
+        }
+    }
+
     private fun millisUntilNextDate(): Long {
         val now = LocalDateTime.now()
         val nextDate = now.toLocalDate().plusDays(1).atStartOfDay().plusSeconds(1)
@@ -362,7 +378,9 @@ class SavingsViewModel(
     }
 
     private companion object {
-        const val UPDATE_CHECK_INTERVAL_MILLIS = 6 * 60 * 60 * 1000L
+        const val UPDATE_CHECK_INTERVAL_MILLIS = 60 * 60 * 1000L
+        const val UPDATE_TIMER_INTERVAL_MILLIS = 60 * 60 * 1000L
+        const val BACKGROUND_UPDATE_CHECK_DELAY_MILLIS = 15 * 60 * 1000L
     }
 }
 
